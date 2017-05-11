@@ -2,88 +2,139 @@ import tensorflow as tf
 import json
 import math
 import numpy as np
+import re
+
+def process_tweet(plain_tweet):
+	tokens = plain_tweet.split(" ")
+	processed_tokens = list()
+	for token in tokens:
+		processed_token = token.lower()
+		processed_token = re.sub(r'https?:\/\/.*[\r\n]*','',processed_token)
+		processed_token = re.sub(r'#','',processed_token)
+		processed_token = re.sub(r'@','',processed_token)
+		processed_token = token.lower()
+		processed_tokens.append(processed_token)
+	tweet = ""
+	last_token = processed_tokens[len(processed_tokens) - 1]
+	for token in processed_tokens:
+		tweet += token
+		if not last_token == token:
+			tweet += ' '
+	return tweet
 
 def read_data(filename):
-	data = {}
+	data = list()
 	with open(filename) as datafile:
-		data = json.load(datafile)
+		lines = datafile.readlines()
+	for line in lines:
+		tweet = json.loads(line)
+		data.append(process_tweet(tweet['text']))
 	return data
 
-# assume we have tokens at this point in tokenList as a dictionary with counts, tweets as sentences in tweetList
 
-def binary(count,vector):
-	i = 0
-	while(count > 0 and i <= len(vector)):
-		if(count % 2 == 1):
-			vector[count] = 1
-		count = count / 2
-		i = i + 1
-	return vector
+tweetList = read_data("fire2016-final-Nepal-earthquake-tweets.jsonl")
+def process_tweets(tweetList, threshold_prob):
+	tokenList = dict()
+	tokenList['UNK'] = 1
+	for tweets in tweetList:
+		for token in tweets:
+			if token in tokenList:
+				tokenList[token] += 1
+			else:
+				tokenList[token] = 0
+	tokenListCopy = dict(tokenList)
+	for token in tokenList:
+		if token == 'UNK':
+			continue
+		if (tokenList[token] / len(tokenList)) < threshold_prob:
+			tokenListCopy['UNK'] += tokenList[token]
+			del tokenListCopy[token]
+	return tokenListCopy
 
-size = 0
+print("Read and processed tweets and tokens")
+
+threshold_prob = 0.01
+tokenList = process_tweets(tweetList, threshold_prob)
+
+print("Built dataset of tweets for learning")
+
+vocabulary_size = 0
 
 def build_data(tokenList):
-	global size
-	size = len(tokenList)
-	encoding_size = math.ceil(math.log(size,2))
-	count = 0
-	word2binary = dict()
+	global vocabulary_size
+	vocabulary_size = len(tokenList)
+	word2count = dict()
+	binary2word = dict()
 	for token in tokenList:
-		t = np.zeros(shape=(encoding_size),dtype=np.bool)
-		word2binary[token] = binary(len(word2binary),encoding_size,t) 
-	binary2word = dict(zip(word2binary.values(),word2binary.keys()))
-	return word2binary,binary2word,encoding_size
+		word2count[token] = len(word2count)
+		binary2word[word2count[token]] = token 
+	return binary2word,word2count
 
-def build_training(word2binary, binary2word, tokenList, tweetList, window_size):
+binary2word,word2count = build_data(tokenList)
+print("Built encodings for tokens")
+
+def build_training(binary2word, tokenList, tweetList, window_size, word2count):
 	context = []
 	token = []
 	for tweet in tweetList:
 		extras = list()
-		for i in window_size:
+		for i in range(window_size):
 			extras.append("UNK")
+		ttweet = list(tweet)
 		ttweet = extras + ttweet + extras
-		for j in range(size(tweet)):
+		for j in range(len(tweet)):
 			main_token = ttweet[j+window_size]
+			if not main_token in word2count:
+				continue
 			context_tokens = list()
 			for i in range(1,window_size+1):
 				context_tokens.append(ttweet[j+window_size-i])
 				context_tokens.append(ttweet[j+window_size+i])
 			for context_token in context_tokens:
-				token.append(word2binary[main_token])
-				context.append(word2binary[context_token])
+				token.append(word2count[main_token])
+				if not context_token in word2count:
+					context.append(word2count['UNK'])
+				else:
+					context.append(word2count[context_token])
 	return token,context
+
+window_size = 2
+tokens,context_words = build_training(binary2word,tokenList,tweetList, window_size,word2count)
+print("Built training dataset")
 
 embedding_size = 256
 
-def generate_batch(batch_size,encoding_size):
-	global token, context
-	batch = np.ndarray(shape=(batch_size,encoding_size))
-	label = np.ndarray(shape=(batch_size,encoding_size,1))
+def generate_batch(batch_size):
+	global tokens, context_words
+	batch = np.ndarray(shape=(batch_size),dtype=int64)
+	label = np.ndarray(shape=(batch_size,1),dtype=int64)
 	skip_list = []
-	random_input = np.floor(np.random.rand(batch_size)*len(token))
+	random_input = np.floor(np.random.rand(batch_size)*len(tokens)).astype(int)
 	count = 0
 	for i in random_input:
-		batch[count] = token[i]
-		label[count] = context[i]
+		batch[count] = tokens[i]
+		label[count] = context_words[i]
 		count = count + 1
 	return batch,label
 
+valid_examples,_ = generate_batch(64)
 learning_rate = 1.0
 batch_size = 64
+num_sampled = 32
 
 graph = tf.Graph()
 
 
 with graph.as_default():
-	train_inputs = tf.placeholder(tf.bool, shape=(batch_size,encoding_size))
-	train_labels = tf.placeholder(tf.bool, shape=(batch_size,encoding_size,1))
-	valid_dataset = tf.constant(valid_examples, dtype=tf.bool)
+	train_inputs = tf.placeholder(tf.int32, shape=(batch_size))
+	train_labels = tf.placeholder(tf.int64, shape=(batch_size,1))
+	valid_dataset = tf.constant(valid_examples)
 
-	embeddings = tf.Variable(tf.random_uniform([encoding_size,embedding_size]))
+	embeddings = tf.Variable(tf.random_uniform([vocabulary_size,embedding_size]))
 	embed = tf.nn.embedding_lookup(embeddings,train_inputs)
 
-	nce_weights = tf.Variable(tf.truncated_normal([encoding_size,embedding_size],1.0/math.sqrt(embedding_size)))
-	nce_biases = tf.Variable(tf.zeros([encoding_size]))
+	nce_weights = tf.Variable(tf.truncated_normal([vocabulary_size,embedding_size],1.0/math.sqrt(embedding_size)))
+	nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
 	loss = tf.reduce_mean(tf.nn.nce_loss(weights = nce_weights, biases = nce_biases, labels = train_labels, inputs = embed, num_sampled = num_sampled, num_classes=size))
 
@@ -104,7 +155,7 @@ with tf.Session(graph=graph) as session:
 
 	average_loss = 0
 	for step in range(num_steps):
-		batch_inputs, batch_labels = generate_batch(batch_size, encoding_size)
+		batch_inputs, batch_labels = generate_batch(batch_size)
 		feed_dict = {train_inputs: batch_inputs, train_labels : batch_labels}
 		_,loss_val = session.run([optimizer,loss], feed_dict=feed_dict)
 		average_loss += loss_val
@@ -114,4 +165,4 @@ with tf.Session(graph=graph) as session:
 			top_k = 8
 			nearest = (-sim[i,:]).argsort()[1:top_k + 1]
 			for k in range(top_k):
-				print(binary2word[nearest[k]])
+				print(binary2word[get_index(nearest[k])])
