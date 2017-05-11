@@ -53,7 +53,7 @@ def build_training(word2binary, binary2word, tokenList, tweetList, window_size):
 				context.append(word2binary[context_token])
 	return token,context
 
-embedding_size = 128
+embedding_size = 256
 
 def generate_batch(batch_size,encoding_size):
 	global token, context
@@ -69,6 +69,7 @@ def generate_batch(batch_size,encoding_size):
 	return batch,label
 
 learning_rate = 1.0
+batch_size = 64
 
 graph = tf.Graph()
 
@@ -104,7 +105,7 @@ with tf.Session(graph=graph) as session:
 	average_loss = 0
 	for step in range(num_steps):
 		batch_inputs, batch_labels = generate_batch(batch_size, encoding_size)
-		feed_dict = {train_inputs: batch_inputs, train_labels=batch_labels}
+		feed_dict = {train_inputs: batch_inputs, train_labels : batch_labels}
 		_,loss_val = session.run([optimizer,loss], feed_dict=feed_dict)
 		average_loss += loss_val
 
