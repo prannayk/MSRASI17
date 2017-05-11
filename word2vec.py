@@ -8,18 +8,16 @@ def process_tweet(plain_tweet):
 	tokens = plain_tweet.split(" ")
 	processed_tokens = list()
 	for token in tokens:
-		processed_token = token.lower()
-		processed_token = re.sub(r'https?:\/\/.*[\r\n]*','',processed_token)
-		processed_token = re.sub(r'#','',processed_token)
-		processed_token = re.sub(r'@','',processed_token)
+		processed_token = re.sub('https?:\/\/.*[\r\n]*','',token)
+		processed_token = re.sub('#','',processed_token)
+		processed_token = re.sub('@','',processed_token)
+		reg = re.compile('[^a-zA-Z0-9]')
+		processed_token = reg.sub('',processed_token)
 		processed_token = token.lower()
 		processed_tokens.append(processed_token)
-	tweet = ""
-	last_token = processed_tokens[len(processed_tokens) - 1]
+	tweet = list()
 	for token in processed_tokens:
-		tweet += token
-		if not last_token == token:
-			tweet += ' '
+		tweet.append(token)
 	return tweet
 
 def read_data(filename):
@@ -106,8 +104,8 @@ embedding_size = 256
 
 def generate_batch(batch_size):
 	global tokens, context_words
-	batch = np.ndarray(shape=(batch_size),dtype=int64)
-	label = np.ndarray(shape=(batch_size,1),dtype=int64)
+	batch = np.ndarray(shape=(batch_size),dtype=np.int64)
+	label = np.ndarray(shape=(batch_size,1),dtype=np.int64)
 	skip_list = []
 	random_input = np.floor(np.random.rand(batch_size)*len(tokens)).astype(int)
 	count = 0
@@ -136,7 +134,7 @@ with graph.as_default():
 	nce_weights = tf.Variable(tf.truncated_normal([vocabulary_size,embedding_size],1.0/math.sqrt(embedding_size)))
 	nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
-	loss = tf.reduce_mean(tf.nn.nce_loss(weights = nce_weights, biases = nce_biases, labels = train_labels, inputs = embed, num_sampled = num_sampled, num_classes=size))
+	loss = tf.reduce_mean(tf.nn.nce_loss(weights = nce_weights, biases = nce_biases, labels = train_labels, inputs = embed, num_sampled = num_sampled, num_classes=vocabulary_size))
 
 	optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 
@@ -144,25 +142,36 @@ with graph.as_default():
 	normalized_embeddings = embeddings / norm
 	valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
 	similarity = tf.matmul(valid_embeddings, normalized_embeddings, transpose_b=True)
-
+	saver = tf.train.Saver()
 	init = tf.global_variables_initializer()
 
-num_steps = 100001
+num_steps = 1000000001
 
 with tf.Session(graph=graph) as session:
 	init.run()
 	print("Initialized")
 
 	average_loss = 0
+	min_loss = 10000000000
+	count = 0
 	for step in range(num_steps):
 		batch_inputs, batch_labels = generate_batch(batch_size)
 		feed_dict = {train_inputs: batch_inputs, train_labels : batch_labels}
 		_,loss_val = session.run([optimizer,loss], feed_dict=feed_dict)
 		average_loss += loss_val
-
-		if step%1000 == 0 : 
-			sim = similarity.eval()
-			top_k = 8
-			nearest = (-sim[i,:]).argsort()[1:top_k + 1]
-			for k in range(top_k):
-				print(binary2word[get_index(nearest[k])])
+		# print("Running" + str(step))
+		if step%1000 == 0 and step >= 2000:
+			average_loss /= 1000
+			if average_loss < min_loss:
+				min_loss = average_loss
+				count = 0
+				normalized_embeddings_log = normalized_embeddings.eval()
+			else:
+				count += 1
+			if count > 10:
+				break
+			print("Average loss: " + str(average_loss) + " and Minimum Loss: " + str(min_loss) + "and running count: " + str(count) + "/1000")
+			average_loss = 0
+	save_path = saver.save(session, "./model.ckpt")
+	print("Model saved in file %s" % save_path)
+	final_embeddings = normalized_embeddings_log
