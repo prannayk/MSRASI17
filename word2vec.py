@@ -30,7 +30,7 @@ def read_data(filename):
 	return data
 
 
-tweetList = read_data("fire2016-final-Nepal-earthquake-tweets.jsonl")
+tweetList = read_data("tweets.jsonl")
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
 	tokenList['UNK'] = 1
@@ -168,7 +168,7 @@ with tf.Session(graph=graph) as session:
 				normalized_embeddings_log = normalized_embeddings.eval()
 			else:
 				count += 1
-			if count > 10:
+			if count > 1000:
 				break
 			print("Average loss: " + str(average_loss) + " and Minimum Loss: " + str(min_loss) + "and running count: " + str(count) + "/1000")
 			average_loss = 0
