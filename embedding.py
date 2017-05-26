@@ -5,6 +5,27 @@ import math
 
 character_window = 2 # >= 1
 
+def batch_normalize(X, eps=1e-6):
+	if X.get_shape().ndims == 4 :
+		mean = tf.reduce_mean(X,[0,1,2])
+		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2])
+		X = (X - mean)/tf.sqrt(stddev + eps)
+	elif X.get_shape().ndims == 2:
+		mean = tf.reduce_mean(X,[0])
+		stddev = tf.reduce_mean(tf.square(X-mean),[0])
+		X = (X - mean)/tf.sqrt(stddev + eps)
+	elif X.get_shape().ndims == 5:
+		mean = tf.reduce_mean(X,[0,1,2,3])
+		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2,3])
+		X = (X-mean)/tf.sqrt(stddev + eps)
+	elif X.get_shape().ndims == 3:
+		mean = tf.reduce_mean(X,[0,1])
+		stddev = tf.reduce_mean(tf.square(X-mean),[0,1])
+		X = (X-mean)/tf.sqrt(stddev + eps)
+	else:
+		raise NoImplementationForSuchDimensions
+	return X
+
 def process_tweet(plain_tweet):
 	tokens = plain_tweet.split(" ")
 	processed_tokens = list()
@@ -17,13 +38,15 @@ def process_tweet(plain_tweet):
 		tweet.append(token)
 	return tweet
 
-f = open("../../Downloads/training.1600000.processed.noemoticon.csv")
+f = open("../training.1600000.processed.noemoticon.csv")
 text = f.readlines()
 tweetList = list()
 for line in text:
 	tweetList.append(process_tweet(line.split(",")[5]))
 
 maxlen = 0
+
+print("Loaded from file")
 
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
@@ -85,6 +108,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 total_size = len(tweetList)
 batch_size = 50
+char_size = len(char2cencoding)
 
 def generate_batch(splice):
 	global tweetList, batch_size, char2cencoding, word2count
@@ -113,16 +137,18 @@ def generate_batch(splice):
 
 
 class embeddingCoder():
-	def __init__(self,learning_rate, dim1, dim2, dim3, dim_2,dim_4,char_embedding_size,word_embedding_size):
+	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size):
 		self.learning_rate = learning_rate
 		self.dim1 = dim1
 		self.dim2 = dim2
 		self.dim3 = dim3
-		self.dim_2 = dim_2
-		self.dim_4 = dim_4
 		self.char_embedding_size = char_embedding_size
 		self.word_embedding_size = word_embedding_size
-
+		self.char_max_len = char_max_len
+		self.word_max_len = word_max_len
+		self.vocabulary_size = vocabulary_size
+		self.char_size = char_size
+		self.batch_size = batch_size
 		# variables
 		self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 		self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
@@ -170,8 +196,8 @@ class embeddingCoder():
 		return context, complete_embedding
 
 	def build_model(self):
-		train_chars = tf.Placeholder(tf.int32, shape=[batch_size, word_max_len, char_max_len])
-		train_words = tf.Placeholder(tf.int32, shape=[batch_size, word_max_len])
+		train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
+		train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
 		context,complete_embedding = self.embedding_creator(train_chars,train_words)
 
@@ -206,14 +232,18 @@ embeddingEncoder = embeddingCoder(
 		learning_rate = 1e-3,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
-		word_embedding_size = 128
+		word_embedding_size = 128,
+		char_max_len = char_max_len,
+		word_max_len = word_max_len,
+		batch_size = batch_size,
+		char_size = char_size,
+		vocabulary_size = vocabulary_size
 	)
 
 optimizer, loss, train_words, train_chars = embeddingEncoder.build_model()
 session = embeddingEncoder.session()
 embeddingEncoder.initialize()
 
-init.run()
 print("Variables Initialized")
 
 for epoch in range(num_epoch):
