@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import re
 import math
+import time
 
 character_window = 2 # >= 1
 
@@ -45,6 +46,8 @@ for line in text:
 	tweetList.append(process_tweet(line.split(",")[5]))
 
 maxlen = 0
+maxlen_upper_limit = 100
+maxsize_upper_limit = 100
 
 print("Loaded from file")
 
@@ -98,25 +101,31 @@ window_size = 5
 
 for tweet in tweetList:
 	if len(tweet) > maxlen:
-		maxlen = len(tweet)
-		print maxlen
+		if len(tweet) > maxlen_upper_limit:
+			del tweet
+			continue
+		else:
+			maxlen = len(tweet)
 	for token in tweet:
 		if len(token) > maxsize:
-			maxsize = len(token)
-			print(maxsize)
+			if len(token) > maxsize_upper_limit:
+				del token
+				continue
+			else:
+				maxsize = len(token)
+				print(maxsize)
 		new_token = list(token)
 		for char in new_token:
 			if not char in char2cencoding:
 				char2cencoding[char] = len(char2cencoding)
 				cencoding2char[char2cencoding[char]] = char
-maxlen_upper_limit = 100
-maxsize_upper_limit = 100
+
 print("Built encoding maps for Characters")
 word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 200
+batch_size = 50
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -270,6 +279,7 @@ num_epoch = 100
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
+	start_time = time.time()
 	for step in range(num_steps):
 		batch = generate_batch(step)
 		feed_dict = {
@@ -282,6 +292,8 @@ for epoch in range(num_epoch):
 		if step % 10 == 0 and step > 0:
 			average_loss /= 10
 			print("Average_loss %s"%(str(average_loss)))
+			print(time.time() - start_time)
+			start_time = time.time()
 			average_loss = 0
 	embeddingEncoder.save()
 	final_embeddings = normalized_embeddings_log
