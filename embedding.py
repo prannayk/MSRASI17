@@ -116,7 +116,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 50
+batch_size = 200
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -271,7 +271,6 @@ for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
 	for step in range(num_steps):
-		print("Running %d"%(step))
 		batch = generate_batch(step)
 		feed_dict = {
 			train_words : batch[0],
@@ -280,8 +279,8 @@ for epoch in range(num_epoch):
 		_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
 		average_loss += loss_val
 
-		if step % 100 == 0 and step > 0:
-			average_loss /= 100
+		if step % 10 == 0 and step > 0:
+			average_loss /= 10
 			print("Average_loss %s"%(str(average_loss)))
 			average_loss = 0
 	embeddingEncoder.save()
