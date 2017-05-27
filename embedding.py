@@ -163,74 +163,77 @@ class embeddingCoder():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		# variables
-		self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
-		self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
-		# attention matrix
-		weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
-		weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
-		weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
-		self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
-		self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
-		self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+		with tf.device("/gpu:0"):
+			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
+			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
+			# attention matrix
+			weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
+			weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
+			weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
+			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
+			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
+			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
-		words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
-		chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
+		with tf.device("/gpu:0"):
+			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
+			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
-		attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
-		attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
-		attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
-		hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
-		character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
-		complete_embedding = character_embedding + words
-		# known = complete embedding
-		contextvector_list = list()
-		for i in range(word_max_len):
-			count = 0
-			contextvector = None
-			if i - 1 >= 0:
-				contextvector = complete_embedding[:,i - 1]
-				count += 1
-			if i + 1 < word_max_len:
-				if contextvector == None:
-					contextvector = complete_embedding[:,i + 1]
-				else:
-					contextvector += complete_embedding[:,i + 1]
-				count += 1
+			attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
+			attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
+			attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
+			hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
+			character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
+			complete_embedding = character_embedding + words
+			# known = complete embedding
+			contextvector_list = list()
+			for i in range(word_max_len):
+				count = 0
+				contextvector = None
+				if i - 1 >= 0:
+					contextvector = complete_embedding[:,i - 1]
+					count += 1
+				if i + 1 < word_max_len:
+					if contextvector == None:
+						contextvector = complete_embedding[:,i + 1]
+					else:
+						contextvector += complete_embedding[:,i + 1]
+					count += 1
 
-			for j in range(1,character_window):
-				if i - j - 1 >= 0:
-					contextvector += complete_embedding[:,i -j -1]
-					count += 1
-				elif i +j + 1 < word_max_len:
-					contextvector += complete_embedding[:,i + j + 1]
-					count += 1
-			contextvector_list.append(contextvector / count)
-		context = tf.stack(contextvector_list,axis=1)
-		return context, complete_embedding
+				for j in range(1,character_window):
+					if i - j - 1 >= 0:
+						contextvector += complete_embedding[:,i -j -1]
+						count += 1
+					elif i +j + 1 < word_max_len:
+						contextvector += complete_embedding[:,i + j + 1]
+						count += 1
+				contextvector_list.append(contextvector / count)
+			context = tf.stack(contextvector_list,axis=1)
+			return context, complete_embedding
 
 	def build_model(self):
-		train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
-		train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
+		with tf.device("/gpu:0"):
+			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
+			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
-		context,complete_embedding = self.embedding_creator(train_chars,train_words)
+			context,complete_embedding = self.embedding_creator(train_chars,train_words)
 
-		r = tf.matmul(context, complete_embedding, transpose_a=True)
-		p = tf.log(tf.nn.softmax(r))
-		loss = -tf.reduce_mean(p)
+			r = tf.matmul(context, complete_embedding, transpose_a=True)
+			p = tf.log(tf.nn.softmax(r))
+			loss = -tf.reduce_mean(p)
 
-		optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
+			optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
 
-		norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
-		normalized_embeddings_word = tf.stack([self.word_embeddings / norm]*batch_size)
-		valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
-		valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
-		_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
-		similarity = tf.matmul(valid_embeddings, normalized_embeddings_word, transpose_b=True)
-		self.saver = tf.train.Saver()
-		self.init = tf.global_variables_initializer()
+			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
+			normalized_embeddings_word = tf.stack([self.word_embeddings / norm]*batch_size)
+			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
+			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
+			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
+			similarity = tf.matmul(valid_embeddings, normalized_embeddings_word, transpose_b=True)
+			self.saver = tf.train.Saver()
+			self.init = tf.global_variables_initializer()
 
-		return optimizer, loss, train_words, train_chars, valid_words, valid_chars, valid_embeddings
+			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, valid_embeddings
 
 	def initialize(self):
 		self.init.run()
