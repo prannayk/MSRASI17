@@ -146,7 +146,7 @@ def generate_batch(splice):
 					train_word[count, t] = word2count[tokens[t]]
 				else:
 					train_word[count, t] = word2count['UNK']
-				for index in range(len(tokens[t])):
+				for index in range(min(char_max_len, len(tokens[t]))):
 					train_chars[count,t,index] = char2cencoding[tokens[t][index]]
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
@@ -226,8 +226,8 @@ class embeddingCoder():
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
 			context,complete_embedding = self.embedding_creator(train_chars,train_words)
-
-			r = tf.matmul(context, complete_embedding, transpose_a=True)
+			# loss = complete_embedding
+			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
 			p = tf.log(tf.nn.softmax(r))
 			loss = -tf.reduce_mean(p)
 
@@ -291,7 +291,8 @@ for epoch in range(num_epoch):
 
 		if step % 10 == 0 and step > 0:
 			average_loss /= 10
-			print("Average_loss %s"%(str(average_loss)))
+			print("Done with %d tweets:"%(step*batch_size))
+			print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
 			print(time.time() - start_time)
 			start_time = time.time()
 			average_loss = 0
