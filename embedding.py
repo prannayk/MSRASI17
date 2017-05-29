@@ -275,7 +275,7 @@ session = embeddingEncoder.session()
 embeddingEncoder.initialize()
 
 print("Variables Initialized")
-num_epoch = 100
+num_epoch = 10
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
