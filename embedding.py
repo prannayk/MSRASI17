@@ -125,7 +125,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 50
+batch_size = 100
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -172,7 +172,7 @@ class embeddingCoder():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		# variables
-		with tf.device("/gpu:0"):
+		with tf.device("/cpu:0"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
@@ -184,7 +184,7 @@ class embeddingCoder():
 			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
-		with tf.device("/gpu:0"):
+		with tf.device("/cpu:0"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
@@ -221,7 +221,7 @@ class embeddingCoder():
 			return context, complete_embedding
 
 	def build_model(self):
-		with tf.device("/gpu:0"):
+		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
@@ -297,4 +297,3 @@ for epoch in range(num_epoch):
 			start_time = time.time()
 			average_loss = 0
 	embeddingEncoder.save()
-	final_embeddings = normalized_embeddings_log
