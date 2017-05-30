@@ -125,7 +125,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 50
+batch_size = 100
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -146,7 +146,7 @@ def generate_batch(splice):
 					train_word[count, t] = word2count[tokens[t]]
 				else:
 					train_word[count, t] = word2count['UNK']
-				for index in range(len(tokens[t])):
+				for index in range(min(char_max_len, len(tokens[t]))):
 					train_chars[count,t,index] = char2cencoding[tokens[t][index]]
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
@@ -172,7 +172,7 @@ class embeddingCoder():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		# variables
-		with tf.device("/gpu:0"):
+		with tf.device("/gpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
@@ -184,7 +184,7 @@ class embeddingCoder():
 			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
-		with tf.device("/gpu:0"):
+		with tf.device("/gpu:00"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
@@ -221,13 +221,13 @@ class embeddingCoder():
 			return context, complete_embedding
 
 	def build_model(self):
-		with tf.device("/gpu:0"):
+		with tf.device("/gpu:00"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
 			context,complete_embedding = self.embedding_creator(train_chars,train_words)
-
-			r = tf.matmul(context, complete_embedding, transpose_a=True)
+			# loss = complete_embedding
+			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
 			p = tf.log(tf.nn.softmax(r))
 			loss = -tf.reduce_mean(p)
 
@@ -275,7 +275,7 @@ session = embeddingEncoder.session()
 embeddingEncoder.initialize()
 
 print("Variables Initialized")
-num_epoch = 100
+num_epoch = 10
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
@@ -291,9 +291,9 @@ for epoch in range(num_epoch):
 
 		if step % 10 == 0 and step > 0:
 			average_loss /= 10
-			print("Average_loss %s"%(str(average_loss)))
+			print("Done with %d tweets:"%(step*batch_size))
+			print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
 			print(time.time() - start_time)
 			start_time = time.time()
 			average_loss = 0
 	embeddingEncoder.save()
-	final_embeddings = normalized_embeddings_log
