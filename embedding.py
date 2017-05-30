@@ -172,7 +172,7 @@ class embeddingCoder():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		# variables
-		with tf.device("/cpu:0"):
+		with tf.device("/gpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
@@ -184,7 +184,7 @@ class embeddingCoder():
 			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
-		with tf.device("/cpu:0"):
+		with tf.device("/gpu:00"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
@@ -221,7 +221,7 @@ class embeddingCoder():
 			return context, complete_embedding
 
 	def build_model(self):
-		with tf.device("/cpu:0"):
+		with tf.device("/gpu:00"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
