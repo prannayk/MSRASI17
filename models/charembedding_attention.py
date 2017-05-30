@@ -129,7 +129,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 20
+batch_size = 100
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -247,7 +247,7 @@ class embeddingCoder():
 			optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
-			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
+			normalized_embeddings_word = batch_normalize(self.word_embeddings / norm)
 			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
 			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
@@ -294,7 +294,7 @@ print("Running init")
 embeddingEncoder.initialize()
 
 print("Variables Initialized")
-num_epoch = 10
+num_epoch = 5
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
