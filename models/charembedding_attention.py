@@ -26,58 +26,60 @@ def batch_normalize(X, eps=1e-6):
 	else:
 		raise NoImplementationForSuchDimensions
 	return X
-
+flag = True
 def process_tweet(plain_tweet):
+	global flag
 	tokens = plain_tweet.split(" ")
 	processed_tokens = list()
 	for token in tokens:
 		processed_token = re.sub('https?:\/\/.*[\r\n]*','',token)
-		processed_token = token.lower()
+		processed_token = re.sub('[^a-zA-Z0-9#]','',processed_token)
+		processed_token = re.sub('["!]','',processed_token)
+		processed_token = processed_token.lower()
 		processed_tokens.append(processed_token)
 	tweet = list()
-	for token in processed_tokens:
-		tweet.append(token)
+	for ptoken in processed_tokens:
+		if not ptoken == '':
+			tweet.append(ptoken)
 	return tweet
 
-f = open("../training.1600000.processed.noemoticon.csv")
+f = open("../../training.1600000.processed.noemoticon.csv")
 text = f.readlines()
 tweetList = list()
 for line in text:
 	tweetList.append(process_tweet(line.split(",")[5]))
 
 maxlen = 0
-maxlen_upper_limit = 100
-maxsize_upper_limit = 100
+maxlen_upper_limit = 50
+maxsize_upper_limit = 50
 
 print("Loaded from file")
 
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
 	tokenList['UNK'] = 1
+	total = 0
 	for tweets in tweetList:
 		for token in tweets:
+			total += 1
 			if token in tokenList:
 				tokenList[token] += 1
 			else:
 				tokenList[token] = 0
-	tokenListCopy = dict(tokenList)
-	for token in tokenList:
-		if token == 'UNK':
+	tokenL = dict(tokenList)
+	for token in tokenList: 
+		if tokenList[token] < total*threshold_prob :
+			tokenList['UNK'] += tokenList[token]
+			del tokenL[token]
+		elif (token == 'UNK') : 
 			continue
-		if (tokenList[token] / len(tokenList)) < threshold_prob:
-			tokenListCopy['UNK'] += tokenList[token]
-			del tokenListCopy[token]
-	return tokenListCopy
+	return tokenL
 
 print("Read and processed tweets and tokens")
 
-threshold_prob = 0.001
-tokenList = process_tweets(tweetList, threshold_prob)
+tokenList = process_tweets(tweetList, 1e-7)
 
 print("Built dataset of tweets for learning")
-
-vocabulary_size = 0
-
 def build_data(tokenList):
 	global vocabulary_size
 	vocabulary_size = len(tokenList)
@@ -89,6 +91,8 @@ def build_data(tokenList):
 	return binary2word,word2count
 
 count2word,word2count = build_data(tokenList)
+print(len(tokenList))
+vocabulary_size = len(tokenList)
 print("Built encodings for tokens")
 
 char2cencoding = dict()
@@ -125,23 +129,28 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 100
+batch_size = 20
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
 	global tweetList, batch_size, char2cencoding, word2count
-	global char_max_len, word_max_len
+	global char_max_len, word_max_len, flag
 	batch = tweetList[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
 	count = 0
 	for tweet in batch:
+		if flag:
+			print(tweet)
 		tokens = tweet
 		for t in range(word_max_len):
 			if t >= len(tokens):
+				
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
 			else:
+				if flag:
+					print(tokens[t])
 				if tokens[t] in word2count:
 					train_word[count, t] = word2count[tokens[t]]
 				else:
@@ -152,8 +161,12 @@ def generate_batch(splice):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
 	return train_word, train_chars
-
+print("Generating batches")
+flag = True
 valid_words, valid_chars = generate_batch(np.random.randint(1,100))
+flag = False
+print(valid_words)
+print(valid_chars)
 
 class embeddingCoder():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars ):
@@ -172,7 +185,7 @@ class embeddingCoder():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		# variables
-		with tf.device("/gpu:00"):
+		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
@@ -184,7 +197,7 @@ class embeddingCoder():
 			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
-		with tf.device("/gpu:00"):
+		with tf.device("/cpu:0"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
@@ -221,7 +234,7 @@ class embeddingCoder():
 			return context, complete_embedding
 
 	def build_model(self):
-		with tf.device("/gpu:00"):
+		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 
@@ -234,15 +247,18 @@ class embeddingCoder():
 			optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
-			normalized_embeddings_word = tf.stack([self.word_embeddings / norm]*batch_size)
+			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
 			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
 			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
-			similarity = tf.matmul(valid_embeddings, normalized_embeddings_word, transpose_b=True)
+			valid_run = tf.reshape(valid_embeddings, shape=[self.batch_size, self.word_max_len, 1, self.word_embedding_size])
+			# similarity = tf.matmul(valid_run, normalized_embeddings_word, transpose_b=True)
+			words_matrix = tf.reshape(tf.transpose(normalized_embeddings_word), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
+			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
 
-			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, valid_embeddings
+			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings)
 
 	def initialize(self):
 		self.init.run()
@@ -255,6 +271,7 @@ class embeddingCoder():
 
 num_steps = total_size // batch_size
 
+print("Entering Embedding maker")
 embeddingEncoder = embeddingCoder(
 		learning_rate = 1e-3,
 		dim1 = 64, dim2=16, dim3=1, 
@@ -269,9 +286,11 @@ embeddingEncoder = embeddingCoder(
 		valid_words = valid_words,
 		valid_chars = valid_chars
 	)
-
-optimizer, loss, train_words, train_chars, validwords, v_chars, v_embeddings = embeddingEncoder.build_model()
+print("Building model")
+optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding = embeddingEncoder.build_model()
+print("Setting up session")
 session = embeddingEncoder.session()
+print("Running init")
 embeddingEncoder.initialize()
 
 print("Variables Initialized")
@@ -296,18 +315,18 @@ for epoch in range(num_epoch):
 			print(time.time() - start_time)
 			start_time = time.time()
 			average_loss = 0
-		if step % 250 == 0 and step > 0:
+		if step % 100 == 0 and step > 0:
 			print("Printing similar words")
 			feed_dict = {
 				validwords : valid_words,
 				v_chars : valid_chars
 			}
-			word_list = session.run([similarity], feed_dict=feed_dict)
-			argmax = np.argmax(word_list,axis=2)
-			for t in range(word_list.shape[0]):
-				for l in range(valid_words.shape[1]):
-					print("Word: %s"%(valid_words[t,l]))
-					print("Similar word: %s"%(word_list[t,l,argmax[t,l]]))
+			word_list = session.run(similarity, feed_dict=feed_dict)
+			for t in range(len(word_list)):
+				for l in range(min(len(word_list[t]),5)):
+					petrol = -word_list[t][l]
+					word = petrol[0].argsort()[1]
+					print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
 
 	embeddingEncoder.save()
-	final_embeddings = normalized_embeddings_log
+	final_embeddings = embedding.eval()
