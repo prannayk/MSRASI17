@@ -4,9 +4,11 @@ import re
 import math
 import time
 
+print("Loading NLTK")
 from nltk.corpus import brown, reuters, twitter_samples, stopwords
 from nltk.tokenize import TweetTokenizer
 from nltk.stem.lancaster import LancasterStemmer
+print("Loaded NLTK")
 tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
 stemmer = LancasterStemmer()
 stoplist = stopwords.words('english')
@@ -28,11 +30,18 @@ def batch_normalize(X, eps=1e-8):
 
 flag = True
 
+import string
+punctuation = string.punctuation
+
+print("Loading tweets")
 f = open("../../training.1600000.processed.noemoticon.csv")
 text = f.readlines()
 tweetList = list()
 for line in text:
-	tweetList.append(tknzr.tokenize(line.split(",")[5]))
+	tweetList.append(tknzr.tokenize(line.split(",")[5].decode("utf-8","ignore").encode("utf-8")))
+	if len(tweetList) >= 50000 : 
+		break
+print("Loaded tweets")
 
 maxlen = 0
 maxlen_upper_limit = 50
@@ -42,22 +51,35 @@ print("Loaded from file")
 print("Loading Brown corpus")
 brownsents = brown.sents()
 len_brown_sents = len(brownsents)
-brownsents = map(lambda y: ' '.join(map(lambda x: x.lower, y)), brownsents)
+brownsentences = []
+for bs in brownsents:
+	sentence = []
+	for token in bs:
+		if token in punctuation:
+			continue
+		sentence.append(token)
+	brownsentences.append(sentence)
 
 print("Loading Reuters corpus")
 reutersents = reuters.sents()
 len_reuters_sents = len(reutersents)
-reutersents = map(lambda y: ' '.join(map(lambda x: x.lower, y)), reutersents)
+reutersentences = []
+for bs in reutersents:
+	sentence = []
+	for token in bs:
+		if token in punctuation:
+			continue
+		sentence.append(token)
+	reutersentences.append(sentence)
 
 print("Loading Twitter corpus")
-sample_tweets = twitter_samples.strings()
-sample_tweets = map(lambda y: ' '.join(map(lambda x: x.lower, y)), sample_tweets)
+sample_tweets = []
+for tweet in twitter_samples.strings():
+	sample_tweets.append(tweet)
 tweetList += sample_tweets
 
 print("Loaded everything")
 
-import string
-punctuation = string.punctuation
 
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
@@ -85,19 +107,16 @@ def process_tweets(tweetList, threshold_prob):
 	return tokenL
 
 print("Read and processed tweets and tokens")
-
 tokenList = process_tweets(tweetList, 1e-7)
-browntokens = brown.words()
-reutertokens = reuters.words()
+print("Done with tweetList")
+browntokens = [i for i in brown.words()]
+reutertokens = [ i for i in reuters.words()]
+print("Mering: ")
 
-def merge(tokenList, browntokens, reutertokens):
-	tokenL = list(tokenList)
-	for token in (browntokens + reutertokens):
-		if not token in tokenL:
-			tokenL.append(token)
-	return tokenL
+def merge(first_list, second_list):
+	return first_list + list(set(second_list) - set(first_list))
 
-tokenList = merge(tokenList.keys(), browntokens, reutertokens)
+tokenList = merge(tokenList.keys(), merge(browntokens, reutertokens))
 
 print("Built dataset of tweets for learning")
 
@@ -161,17 +180,12 @@ def generate_batch(splice):
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
 	count = 0
 	for tweet in batch:
-		if flag:
-			print(tweet)
 		tokens = tweet
 		for t in range(word_max_len):
 			if t >= len(tokens):
-				
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
 			else:
-				if flag:
-					print(tokens[t])
 				if tokens[t] in word2count:
 					train_word[count, t] = word2count[tokens[t]]
 				else:
@@ -372,6 +386,8 @@ print("Variables Initialized")
 print("Running for brown and reuters")
 average_loss = 0
 count = 0
+epoch = 0
+valid_brown_words, valid_brown_chars = generate_batch_brown(np.random.randint(1,20))
 start_time = time.time()
 for step in range(num_steps_brown):
 	batch = generate_batch_brown(step)
@@ -408,6 +424,8 @@ embeddingEncoder.save()
 print("Running for reuters")
 average_loss = 0
 count = 0
+
+valid_reuters_words, valid_reuters_chars = generate_batch_reuters(np.random.randint(1,20))
 start_time = time.time()
 for step in range(num_steps_reuters):
 	batch = generate_batch_reuters(step)
@@ -439,9 +457,6 @@ for step in range(num_steps_reuters):
 				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
 
 embeddingEncoder.save()
-
-
-
 
 num_epoch = 3
 for epoch in range(num_epoch):
