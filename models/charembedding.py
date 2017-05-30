@@ -6,25 +6,17 @@ import time
 
 character_window = 2 # >= 1
 
-def batch_normalize(X, eps=1e-6):
-	if X.get_shape().ndims == 4 :
-		mean = tf.reduce_mean(X,[0,1,2])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2])
-		X = (X - mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 2:
-		mean = tf.reduce_mean(X,[0])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0])
-		X = (X - mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 5:
-		mean = tf.reduce_mean(X,[0,1,2,3])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2,3])
-		X = (X-mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 3:
-		mean = tf.reduce_mean(X,[0,1])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1])
-		X = (X-mean)/tf.sqrt(stddev + eps)
+def batch_normalize(X, eps=1e-8):
+	if X.get_shape().ndims == 4:	
+		X = tf.nn.l2_normalize(X, [0,1,2], epsilon=eps)
+	elif X.get_shape().ndims == 2:	
+		X = tf.nn.l2_normalize(X, 0, epsilon=eps)
+	elif X.get_shape().ndims == 3:	
+		X = tf.nn.l2_normalize(X, [0,1], epsilon=eps)
+	elif X.get_shape().ndims == 5:	
+		X = tf.nn.l2_normalize(X, [0,1,2,3], epsilon=eps)
 	else:
-		raise NoImplementationForSuchDimensions
+		raise NotImplemented
 	return X
 flag = True
 def process_tweet(plain_tweet):
@@ -129,7 +121,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 20
+batch_size = 100
 char_size = len(char2cencoding)
 
 def generate_batch(splice):
@@ -202,7 +194,7 @@ class embeddingCoder():
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
 			character_embedding = tf.reduce_mean(chars, axis=2)
-			complete_embedding = character_embedding + words
+			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
 			# known = complete embedding
 			contextvector_list = list()
 			for i in range(word_max_len):
@@ -244,6 +236,8 @@ class embeddingCoder():
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
 			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
+			norm = tf.sqrt(tf.reduce_sum(tf.square(self.char_embeddings),1,keep_dims=True))
+			normalized_embeddings_char = tf.stack(self.char_embeddings / norm)
 			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
 			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
@@ -254,7 +248,7 @@ class embeddingCoder():
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
 
-			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings)
+			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
 	def initialize(self):
 		self.init.run()
@@ -283,7 +277,7 @@ embeddingEncoder = embeddingCoder(
 		valid_chars = valid_chars
 	)
 print("Building model")
-optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding = embeddingEncoder.build_model()
+optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding, norm_embedding = embeddingEncoder.build_model()
 print("Setting up session")
 session = embeddingEncoder.session()
 print("Running init")
@@ -311,7 +305,7 @@ for epoch in range(num_epoch):
 			print(time.time() - start_time)
 			start_time = time.time()
 			average_loss = 0
-		if step % 100 == 0 and step > 0:
+		if step % 250 == 0 and step > 0:
 			print("Printing similar words")
 			feed_dict = {
 				validwords : valid_words,
