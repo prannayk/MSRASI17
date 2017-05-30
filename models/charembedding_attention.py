@@ -4,50 +4,35 @@ import re
 import math
 import time
 
+from nltk.corpus import brown, twitter_samples, stopwords
+from nltk.tokenize import TweetTokenizer
+from nltk.stem.lancaster import LancasterStemmer
+tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
+stemmer = LancasterStemmer()
+stoplist = stopwords.words('english')
+
 character_window = 2 # >= 1
 
-def batch_normalize(X, eps=1e-6):
-	if X.get_shape().ndims == 4 :
-		mean = tf.reduce_mean(X,[0,1,2])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2])
-		X = (X - mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 2:
-		mean = tf.reduce_mean(X,[0])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0])
-		X = (X - mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 5:
-		mean = tf.reduce_mean(X,[0,1,2,3])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1,2,3])
-		X = (X-mean)/tf.sqrt(stddev + eps)
-	elif X.get_shape().ndims == 3:
-		mean = tf.reduce_mean(X,[0,1])
-		stddev = tf.reduce_mean(tf.square(X-mean),[0,1])
-		X = (X-mean)/tf.sqrt(stddev + eps)
+def batch_normalize(X, eps=1e-8):
+	if X.get_shape().ndims == 4:	
+		X = tf.nn.l2_normalize(X, [0,1,2], epsilon=eps)
+	elif X.get_shape().ndims == 2:	
+		X = tf.nn.l2_normalize(X, 0, epsilon=eps)
+	elif X.get_shape().ndims == 3:	
+		X = tf.nn.l2_normalize(X, [0,1], epsilon=eps)
+	elif X.get_shape().ndims == 5:	
+		X = tf.nn.l2_normalize(X, [0,1,2,3], epsilon=eps)
 	else:
-		raise NoImplementationForSuchDimensions
+		raise NotImplemented
 	return X
+
 flag = True
-def process_tweet(plain_tweet):
-	global flag
-	tokens = plain_tweet.split(" ")
-	processed_tokens = list()
-	for token in tokens:
-		processed_token = re.sub('https?:\/\/.*[\r\n]*','',token)
-		processed_token = re.sub('[^a-zA-Z0-9#]','',processed_token)
-		processed_token = re.sub('["!]','',processed_token)
-		processed_token = processed_token.lower()
-		processed_tokens.append(processed_token)
-	tweet = list()
-	for ptoken in processed_tokens:
-		if not ptoken == '':
-			tweet.append(ptoken)
-	return tweet
 
 f = open("../../training.1600000.processed.noemoticon.csv")
 text = f.readlines()
 tweetList = list()
 for line in text:
-	tweetList.append(process_tweet(line.split(",")[5]))
+	tweetList.append(tknzr.tokenize(line.split(",")[5]))
 
 maxlen = 0
 maxlen_upper_limit = 50
@@ -62,6 +47,7 @@ def process_tweets(tweetList, threshold_prob):
 	for tweets in tweetList:
 		for token in tweets:
 			total += 1
+			stemmed = stemmer.stem(token)
 			if token in tokenList:
 				tokenList[token] += 1
 			else:
@@ -80,6 +66,7 @@ print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 
 print("Built dataset of tweets for learning")
+
 def build_data(tokenList):
 	global vocabulary_size
 	vocabulary_size = len(tokenList)

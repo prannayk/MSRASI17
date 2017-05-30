@@ -4,6 +4,13 @@ import re
 import math
 import time
 
+from nltk.corpus import brown, reuters, twitter_samples, stopwords
+from nltk.tokenize import TweetTokenizer
+from nltk.stem.lancaster import LancasterStemmer
+tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
+stemmer = LancasterStemmer()
+stoplist = stopwords.words('english')
+
 character_window = 2 # >= 1
 
 def batch_normalize(X, eps=1e-8):
@@ -18,34 +25,39 @@ def batch_normalize(X, eps=1e-8):
 	else:
 		raise NotImplemented
 	return X
+
 flag = True
-def process_tweet(plain_tweet):
-	global flag
-	tokens = plain_tweet.split(" ")
-	processed_tokens = list()
-	for token in tokens:
-		processed_token = re.sub('https?:\/\/.*[\r\n]*','',token)
-		processed_token = re.sub('[^a-zA-Z0-9#]','',processed_token)
-		processed_token = re.sub('["!]','',processed_token)
-		processed_token = processed_token.lower()
-		processed_tokens.append(processed_token)
-	tweet = list()
-	for ptoken in processed_tokens:
-		if not ptoken == '':
-			tweet.append(ptoken)
-	return tweet
 
 f = open("../../training.1600000.processed.noemoticon.csv")
 text = f.readlines()
 tweetList = list()
 for line in text:
-	tweetList.append(process_tweet(line.split(",")[5]))
+	tweetList.append(tknzr.tokenize(line.split(",")[5]))
 
 maxlen = 0
 maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
+print("Loading Brown corpus")
+brownsents = brown.sents()
+len_brown_sents = len(brownsents)
+brownsents = map(lambda y: ' '.join(map(lambda x: x.lower, y)), brownsents)
+
+print("Loading Reuters corpus")
+reutersents = reuters.sents()
+len_reuters_sents = len(reutersents)
+reutersents = map(lambda y: ' '.join(map(lambda x: x.lower, y)), reutersents)
+
+print("Loading Twitter corpus")
+sample_tweets = twitter_samples.strings()
+sample_tweets = map(lambda y: ' '.join(map(lambda x: x.lower, y)), sample_tweets)
+tweetList += sample_tweets
+
+print("Loaded everything")
+
+import string
+punctuation = string.punctuation
 
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
@@ -53,7 +65,12 @@ def process_tweets(tweetList, threshold_prob):
 	total = 0
 	for tweets in tweetList:
 		for token in tweets:
+			if token in stoplist:
+				continue
+			elif token in punctuation:
+				continue
 			total += 1
+			stemmed = stemmer.stem(token)
 			if token in tokenList:
 				tokenList[token] += 1
 			else:
@@ -69,9 +86,21 @@ def process_tweets(tweetList, threshold_prob):
 
 print("Read and processed tweets and tokens")
 
-tokenList = process_tweets(tweetList, 1e-9)
+tokenList = process_tweets(tweetList, 1e-7)
+browntokens = brown.words()
+reutertokens = reuters.words()
+
+def merge(tokenList, browntokens, reutertokens):
+	tokenL = list(tokenList)
+	for token in (browntokens + reutertokens):
+		if not token in tokenL:
+			tokenL.append(token)
+	return tokenL
+
+tokenList = merge(tokenList.keys(), browntokens, reutertokens)
 
 print("Built dataset of tweets for learning")
+
 def build_data(tokenList):
 	global vocabulary_size
 	vocabulary_size = len(tokenList)
@@ -153,6 +182,57 @@ def generate_batch(splice):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
 	return train_word, train_chars
+
+def generate_batch_brown(splice):
+	global tweetList, batch_size, char2cencoding, word2count
+	global char_max_len, word_max_len, flag
+	batch = brownsents[splice*batch_size:splice*batch_size +  batch_size]
+	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
+	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	count = 0
+	for tweet in batch:
+		tokens = tweet
+		for t in range(word_max_len):
+			if t >= len(tokens):
+				train_word[count, t] = word2count['UNK']
+				train_chars[count, t] = np.zeros_like(train_chars[count,t])
+			else:
+				if tokens[t] in word2count:
+					train_word[count, t] = word2count[tokens[t]]
+				else:
+					train_word[count, t] = word2count['UNK']
+				for index in range(min(char_max_len, len(tokens[t]))):
+					train_chars[count,t,index] = char2cencoding[tokens[t][index]]
+				for index in range(len(tokens[t]), char_max_len):
+					train_chars[count,t,index] = char2cencoding[' ']
+		count += 1
+	return train_word, train_chars
+
+def generate_batch_reuters(splice):
+	global tweetList, batch_size, char2cencoding, word2count
+	global char_max_len, word_max_len, flag
+	batch = reutersents[splice*batch_size:splice*batch_size +  batch_size]
+	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
+	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	count = 0
+	for tweet in batch:
+		tokens = tweet
+		for t in range(word_max_len):
+			if t >= len(tokens):
+				train_word[count, t] = word2count['UNK']
+				train_chars[count, t] = np.zeros_like(train_chars[count,t])
+			else:
+				if tokens[t] in word2count:
+					train_word[count, t] = word2count[tokens[t]]
+				else:
+					train_word[count, t] = word2count['UNK']
+				for index in range(min(char_max_len, len(tokens[t]))):
+					train_chars[count,t,index] = char2cencoding[tokens[t][index]]
+				for index in range(len(tokens[t]), char_max_len):
+					train_chars[count,t,index] = char2cencoding[' ']
+		count += 1
+	return train_word, train_chars
+
 print("Generating batches")
 flag = True
 valid_words, valid_chars = generate_batch(np.random.randint(1,100))
@@ -283,8 +363,87 @@ session = embeddingEncoder.session()
 print("Running init")
 embeddingEncoder.initialize()
 
+# brown batch generator
+num_steps_brown = len_brown_sents // batch_size
+num_steps_reuters = len_reuters_sents // batch_size
+#reuters batch generator
+
 print("Variables Initialized")
-num_epoch = 10
+print("Running for brown and reuters")
+average_loss = 0
+count = 0
+start_time = time.time()
+for step in range(num_steps_brown):
+	batch = generate_batch_brown(step)
+	feed_dict = {
+		train_words : batch[0],
+		train_chars : batch[1]
+	}
+	_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
+	average_loss += loss_val
+
+	if step % 10 == 0 and step > 0:
+		average_loss /= 10
+		print("Done with %d tweets:"%(step*batch_size))
+		print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
+		print(time.time() - start_time)
+		start_time = time.time()
+		average_loss = 0
+	if step % 250 == 0 and step > 0:
+		print("Printing similar words")
+		feed_dict = {
+			validwords : valid_brown_words,
+			v_chars : valid_brown_chars
+		}
+		word_list = session.run(similarity, feed_dict=feed_dict)
+		for t in range(len(word_list)):
+			for l in range(min(len(word_list[t]),5)):
+				petrol = -word_list[t][l]
+				word = petrol[0].argsort()[1]
+				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
+
+embeddingEncoder.save()
+
+
+print("Running for reuters")
+average_loss = 0
+count = 0
+start_time = time.time()
+for step in range(num_steps_reuters):
+	batch = generate_batch_reuters(step)
+	feed_dict = {
+		train_words : batch[0],
+		train_chars : batch[1]
+	}
+	_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
+	average_loss += loss_val
+
+	if step % 10 == 0 and step > 0:
+		average_loss /= 10
+		print("Done with %d tweets:"%(step*batch_size))
+		print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
+		print(time.time() - start_time)
+		start_time = time.time()
+		average_loss = 0
+	if step % 250 == 0 and step > 0:
+		print("Printing similar words")
+		feed_dict = {
+			validwords : valid_reuters_words,
+			v_chars : valid_reuters_chars
+		}
+		word_list = session.run(similarity, feed_dict=feed_dict)
+		for t in range(len(word_list)):
+			for l in range(min(len(word_list[t]),5)):
+				petrol = -word_list[t][l]
+				word = petrol[0].argsort()[1]
+				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
+
+embeddingEncoder.save()
+
+
+
+
+num_epoch = 3
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
