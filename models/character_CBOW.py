@@ -247,14 +247,6 @@ def generate_batch_reuters(splice):
 		count += 1
 	return train_word, train_chars
 
-
-print("Generating batches")
-flag = True
-valid_words, valid_chars = generate_batch(np.random.randint(1,100))
-flag = False
-print(valid_words)
-print(valid_chars)
-
 class embeddingCoder():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars ):
 		self.learning_rate = learning_rate
@@ -288,12 +280,8 @@ class embeddingCoder():
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
-			attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
-			attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
-			attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
-			hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
-			character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
-			complete_embedding = character_embedding + words
+			character_embedding = tf.reduce_mean(chars, axis=2)
+			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
 			# known = complete embedding
 			contextvector_list = list()
 			for i in range(word_max_len):
@@ -320,11 +308,12 @@ class embeddingCoder():
 			context = tf.stack(contextvector_list,axis=1)
 			return context, complete_embedding
 
-		def build_model(self):
+	def build_model(self):
 		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
-
+			self.train_chars = train_chars
+			self.train_words = train_words
 			context,complete_embedding = self.embedding_creator(train_chars,train_words)
 			# loss = complete_embedding
 			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
@@ -346,9 +335,9 @@ class embeddingCoder():
 			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
-
+			self.validwords = valid_words
+			self.v_chars = valid_chars
 			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
-
 
 	def initialize(self):
 		self.init.run()
@@ -361,21 +350,35 @@ class embeddingCoder():
 	def restore(self):
 		self.saver.restore(self.session, './embedding.ckpt')
 		print("Restored model")
-	def train():
-		batch = generate_batch(splice=self.index)
+	def train(batch):
+		self.index += 1
 		feed_dict = {
-			train_words : batch[0],
-			train_chars : batch[1]
+			self.train_words : batch[0],
+			self.train_chars : batch[1]
 		}
 		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
 		if self.index % 10 == 0 and self.index > 0:
-			print("Average loss is: %s"%(self.average_loss))
+			print("Average loss is: %s"%(self.average_loss/10))
+			self.average_reset()
 
 	def reset():
 		self.index = 0
 	def average_reset():
 		self.average_loss = 0
+
+	def validate(batch):
+		feed_dict = {
+			self.validwords : batch[0],
+			self.v_chars : batch[1]
+		}
+		word_list = session.run(similarity, feed_dict=feed_dict)
+		for t in range(len(word_list)):
+			for l in range(min(len(word_list[t]),5)):
+				petrol = -word_list[t][l]
+				word = petrol[0].argsort()[1]
+				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
+
 
 num_steps = total_size // batch_size
 
@@ -395,7 +398,7 @@ embeddingEncoder = embeddingCoder(
 		valid_chars = valid_chars
 	)
 print("Building model")
-optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding = embeddingEncoder.build_model()
+optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding, norm_embedding = embeddingEncoder.build_model()
 print("Setting up session")
 session = embeddingEncoder.session()
 print("Running init")
@@ -409,112 +412,56 @@ print("Running for brown and reuters")
 average_loss = 0
 count = 0
 epoch = 0
-valid_brown_words, valid_brown_chars = generate_batch_brown(np.random.randint(1,20))
+valid_brown = generate_batch_brown(np.random.randint(1,20))
 start_time = time.time()
-
-valid_brown_words, valid_brown_chars = generate_batch_brown(np.random.randint(1,20))
-start_time = time.time()
+embeddingEncoder.reset()
 for step in range(num_steps_brown):
-	batch = generate_batch_brown(step)
-	feed_dict = {
-		train_words : batch[0],
-		train_chars : batch[1]
-	}
-	_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
-	average_loss += loss_val
-
+	embeddingEncoder.average_reset()
+	embeddingEncoder.train(generate_batch_brown(step))
 	if step % 10 == 0 and step > 0:
-		average_loss /= 10
 		print("Done with %d tweets:"%(step*batch_size))
-		print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
 		print(time.time() - start_time)
 		start_time = time.time()
-		average_loss = 0
 	if step % 250 == 0 and step > 0:
+		embeddingEncoder.validate(valid_brown)
 		print("Printing similar words")
-		feed_dict = {
-			validwords : valid_brown_words,
-			v_chars : valid_brown_chars
-		}
-		word_list = session.run(similarity, feed_dict=feed_dict)
-		for t in range(len(word_list)):
-			for l in range(min(len(word_list[t]),5)):
-				petrol = -word_list[t][l]
-				word = petrol[0].argsort()[1]
-				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
-
 embeddingEncoder.save()
 
 print("Running for reuters")
 average_loss = 0
 count = 0
 
-valid_reuters_words, valid_reuters_chars = generate_batch_reuters(np.random.randint(1,20))
+valid_reuters = generate_batch_reuters(np.random.randint(1,20))
 start_time = time.time()
+embeddingEncoder.reset()
 for step in range(num_steps_reuters):
-	batch = generate_batch_reuters(step)
-	feed_dict = {
-		train_words : batch[0],
-		train_chars : batch[1]
-	}
-	_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
-	average_loss += loss_val
-
+	embeddingEncoder.average_reset()
+	embeddingEncoder.train(generate_batch_reuters(step))
 	if step % 10 == 0 and step > 0:
-		average_loss /= 10
 		print("Done with %d tweets:"%(step*batch_size))
-		print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
 		print(time.time() - start_time)
 		start_time = time.time()
-		average_loss = 0
 	if step % 250 == 0 and step > 0:
+		embeddingEncoder.validate(valid_reuters)
 		print("Printing similar words")
-		feed_dict = {
-			validwords : valid_reuters_words,
-			v_chars : valid_reuters_chars
-		}
-		word_list = session.run(similarity, feed_dict=feed_dict)
-		for t in range(len(word_list)):
-			for l in range(min(len(word_list[t]),5)):
-				petrol = -word_list[t][l]
-				word = petrol[0].argsort()[1]
-				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
-
 embeddingEncoder.save()
 
+valid_tweets = generate_batch(np.random.randint(1,100))
 num_epoch = 3
 for epoch in range(num_epoch):
 	average_loss = 0
 	count = 0
 	start_time = time.time()
-	for step in range(num_steps):
-		batch = generate_batch(step)
-		feed_dict = {
-			train_words : batch[0],
-			train_chars : batch[1]
-		}
-		_, loss_val = session.run([optimizer, loss],feed_dict=feed_dict)
-		average_loss += loss_val
-
+	embeddingEncoder.reset()
+	for step in range(num_steps_):
+		embeddingEncoder.average_reset()
+		embeddingEncoder.train(generate_batch(step))
 		if step % 10 == 0 and step > 0:
-			average_loss /= 10
 			print("Done with %d tweets:"%(step*batch_size))
-			print("Average_loss %s where the epoch is: %d"%(str(average_loss), epoch))
 			print(time.time() - start_time)
 			start_time = time.time()
-			average_loss = 0
 		if step % 250 == 0 and step > 0:
+			embeddingEncoder.validate(valid_tweets)
 			print("Printing similar words")
-			feed_dict = {
-				validwords : valid_words,
-				v_chars : valid_chars
-			}
-			word_list = session.run(similarity, feed_dict=feed_dict)
-			for t in range(len(word_list)):
-				for l in range(min(len(word_list[t]),5)):
-					petrol = -word_list[t][l]
-					word = petrol[0].argsort()[1]
-					print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
-
 	embeddingEncoder.save()
 	final_embeddings = embedding.eval()
