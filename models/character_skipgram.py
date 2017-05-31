@@ -181,7 +181,7 @@ def generate_batch(splice):
 			l = t + np.random.randint(-skip_window, skip_window+1)
 			while l >= word_max_len or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
-			train_labels[count,t,0] = word2count[tokens[t]]
+			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -214,7 +214,7 @@ def generate_batch_brown(splice):
 			l = t + np.random.randint(-skip_window, skip_window+1)
 			while l >= word_max_len or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
-			train_labels[count,t,0] = word2count[tokens[t]]
+			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
