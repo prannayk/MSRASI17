@@ -150,19 +150,19 @@ for tweet in tweetList:
 			continue
 		else:
 			maxlen = len(tweet)
-	for token in tweet:
-		if len(token) > maxsize:
-			if len(token) > maxsize_upper_limit:
-				del token
-				continue
-			else:
-				maxsize = len(token)
-				print(maxsize)
-		new_token = list(token)
-		for char in new_token:
-			if not char in char2cencoding:
-				char2cencoding[char] = len(char2cencoding)
-				cencoding2char[char2cencoding[char]] = char
+for token in tokenList:
+	if len(token) > maxsize:
+		if len(token) > maxsize_upper_limit:
+			del token
+			continue
+		else:
+			maxsize = len(token)
+			print(maxsize)
+	new_token = list(token)
+	for char in new_token:
+		if not char in char2cencoding:
+			char2cencoding[char] = len(char2cencoding)
+			cencoding2char[char2cencoding[char]] = char
 
 print("Built encoding maps for Characters")
 word_max_len = maxlen
@@ -251,8 +251,6 @@ print("Generating batches")
 flag = True
 valid_words, valid_chars = generate_batch(np.random.randint(1,100))
 flag = False
-print(valid_words)
-print(valid_chars)
 
 class embeddingCoder():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars ):
@@ -352,6 +350,9 @@ class embeddingCoder():
 	def save(self):
 		url = self.saver.save(self.session,'./embedding.ckpt')
 		print("Saved in: %s"%(url))
+	def restore(self):
+		self.saver.restore(self.session, './embedding.ckpt')
+		print("Restored model")
 
 num_steps = total_size // batch_size
 
@@ -389,6 +390,9 @@ count = 0
 epoch = 0
 valid_brown_words, valid_brown_chars = generate_batch_brown(np.random.randint(1,20))
 start_time = time.time()
+
+valid_brown_words, valid_brown_chars = generate_batch_brown(np.random.randint(1,20))
+start_time = time.time()
 for step in range(num_steps_brown):
 	batch = generate_batch_brown(step)
 	feed_dict = {
@@ -419,7 +423,6 @@ for step in range(num_steps_brown):
 				print("Said word %s is similar to word %s"%(count2word[valid_words[t,l]],count2word[word]))
 
 embeddingEncoder.save()
-
 
 print("Running for reuters")
 average_loss = 0
