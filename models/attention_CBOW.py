@@ -58,7 +58,10 @@ reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.l
 len_reuters_sents = len(reutersentences)
 
 print("Loading Twitter corpus")
-tweetList += map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in twitter_samples.strings() ])
+sample_tweets = []
+for tweet in twitter_samples.strings():
+	sample_tweets.append(tweet)
+tweetList += sample_tweets
 
 print("Loaded everything")
 
@@ -262,22 +265,26 @@ class cbow_char():
 		self.valid_chars = valid_chars
 		# variables
 		with tf.device("/cpu:00"):
-			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0/math.sqrt(self.word_embedding_size)))
-			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0/math.sqrt(self.word_embedding_size)))
+			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
+			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
-			#weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]),stddev=1.0/math.sqrt(self.word_embedding_size))
-			#weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]),stddev=1.0/math.sqrt(self.word_embedding_size))
-			#weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]),stddev=1.0/math.sqrt(self.word_embedding_size))
-			#self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
-			#self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
-			#self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+			weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
+			weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
+			weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
+			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
+			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
+			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
 
 	def embedding_creator(self,train_chars, train_words):
 		with tf.device("/cpu:0"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
-			character_embedding = tf.reduce_mean(chars, axis=2)
+			attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
+			attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
+			attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
+			hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
+			character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
 			# known = complete embedding
 			contextvector_list = list()
@@ -317,7 +324,7 @@ class cbow_char():
 			p = tf.log(tf.nn.softmax(r))
 			loss = -tf.reduce_mean(p)
 
-			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+			optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
 			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
