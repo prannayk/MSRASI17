@@ -58,7 +58,7 @@ reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.l
 len_reuters_sents = len(reutersentences)
 
 print("Loading Twitter corpus")
-tweetList = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [tweetList])
+tweetList = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), tweetList)
 tweetList += map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in twitter_samples.strings() ])
 
 print("Loaded everything")
