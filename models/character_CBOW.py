@@ -34,14 +34,14 @@ flag = True
 
 import string
 punctuation = string.punctuation
-
+printable = set(string.printable)
 print("Loading tweets")
 f = open("../dataset/nepal.jsonl")
 text = f.readlines()
 tweetList = list()
 for line in text:
 	tweet = json.loads(line)
-	tweetList.append(tknzr.tokenize(tweet['text'].decode("utf-8","ignore").encode("utf-8")))
+	tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
 print("Loaded tweets")
 
 maxlen = 0
@@ -50,12 +50,12 @@ maxsize_upper_limit = 50
 
 print("Loaded from file")
 print("Loading Brown corpus")
-len_brown_sents = len(brownsents)
-brownsentences = map(lambda y: map(lambda z: z.lower() , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in brown.sents() ])
+brownsentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in brown.sents() ])
+len_brown_sents = len(brownsentences)
 
 print("Loading Reuters corpus")
-len_reuters_sents = len(reutersents)
-reutersentences = map(lambda y: map(lambda z: z.lower() , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in reuters.sents() ])
+reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in reuters.sents() ])
+len_reuters_sents = len(reutersentences)
 
 print("Loading Twitter corpus")
 sample_tweets = []
@@ -77,7 +77,8 @@ def process_tweets(tweetList, threshold_prob):
 			elif token in punctuation:
 				continue
 			total += 1
-			stemmed = stemmer.stem(token)
+			ptoken = re.sub(('[%s]*'%(punctuation)),' ',token).split(" ")[0]
+			stemmed = stemmer.stem(ptoken).lower()
 			if token in tokenList:
 				tokenList[token] += 1
 			else:
@@ -94,15 +95,26 @@ def process_tweets(tweetList, threshold_prob):
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")
-browntokens = [i for i in brown.words()]
-reutertokens = [ i for i in reuters.words()]
+browntokens = map(lambda x: re.sub('[%s]'%(punctuation),'',st.stem(x).lower()) ,[i for i in brown.words()])
+reutertokens = map(lambda x: re.sub('[%s]'%(punctuation),'',st.stem(x).lower()) ,[ i for i in reuters.words()])
 print("Merging: ")
 
 def merge(first_list, second_list):
 	return first_list + list(set(second_list) - set(first_list))
 
-tokenList = merge(tokenList.keys(), merge(browntokens, reutertokens))
-# tokenList = list(set(browntokens) - set(stoplist)) + ['UNK'] # extra
+def filter_fn(x):
+	t = re.sub(('[%s]'%(punctuation)),'',x)
+	if t == '':
+		return False
+	if len(t) == 1:
+		return False
+	if 'www' in x or 'http' in x:
+		return False
+	return True
+
+tokenList = list(set(merge(tokenList.keys(), merge(browntokens, reutertokens))) - set(stoplist))
+print("Processing tokens")
+tokenList = map(lambda x: re.sub('[%s]'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
 print("Built dataset of tweets for learning")
 
 def build_data(tokenList):
@@ -116,14 +128,15 @@ def build_data(tokenList):
 	return binary2word,word2count
 
 count2word,word2count = build_data(tokenList)
-print(len(tokenList))
-vocabulary_size = len(tokenList)
+vocabulary_size = len(word2count)
 print("Built encodings for tokens")
 
 char2cencoding = dict()
 char2cencoding[' '] = len(char2cencoding)
+char2cencoding['-'] = len(char2cencoding)
 cencoding2char = dict()
 cencoding2char[char2cencoding[' ']] = ' '
+cencoding2char[char2cencoding['-']] = '-'
 
 maxsize = 0
 window_size = 5
@@ -175,7 +188,10 @@ def generate_batch(splice):
 				else:
 					train_word[count, t] = word2count['UNK']
 				for index in range(min(char_max_len, len(tokens[t]))):
-					train_chars[count,t,index] = char2cencoding[tokens[t][index]]
+					if tokens[t][index] in punctuation:
+						train_chars[count, t , index] = char2encoding['-']
+					else:
+						train_chars[count,t,index] = char2cencoding[tokens[t][index]]
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
@@ -184,7 +200,7 @@ def generate_batch(splice):
 def generate_batch_brown(splice):
 	global tweetList, batch_size, char2cencoding, word2count
 	global char_max_len, word_max_len, flag
-	batch = brownsents[splice*batch_size:splice*batch_size +  batch_size]
+	batch = brownsentences[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
 	count = 0
@@ -209,7 +225,7 @@ def generate_batch_brown(splice):
 def generate_batch_reuters(splice):
 	global tweetList, batch_size, char2cencoding, word2count
 	global char_max_len, word_max_len, flag
-	batch = reutersents[splice*batch_size:splice*batch_size +  batch_size]
+	batch = reutersentences[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
 	count = 0
@@ -356,12 +372,16 @@ class embeddingCoder():
 			self.validwords : batch[0],
 			self.v_chars : batch[1]
 		}
+		file_text = []
 		word_list = session.run(similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
 				word = petrol[0].argsort()[1]
-				print("Said word %s is similar to word %s"%(count2word[batch[0][t,l]],count2word[word]))
+				file_text.append("Said word %s is similar to word %s"%(count2word[batch[0][t,l]],count2word[word]))
+		filedata = '\n'.join(file_text)
+		with open("./last_run.text",mode="w") as fil:
+			fil.write(filedata.encode('utf-8','ignore'))
 
 
 num_steps = total_size // batch_size
@@ -397,6 +417,7 @@ average_loss = 0
 count = 0
 epoch = 3
 for ep in range(epoch):
+	print("Running for Brown")
 	valid_brown = generate_batch_brown(np.random.randint(1,20))
 	start_time = time.time()
 	embeddingEncoder.reset()
