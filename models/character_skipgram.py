@@ -58,10 +58,8 @@ reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.l
 len_reuters_sents = len(reutersentences)
 
 print("Loading Twitter corpus")
-sample_tweets = []
-for tweet in twitter_samples.strings():
-	sample_tweets.append(tweet)
-tweetList += sample_tweets
+tweetList = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [tweetList])
+tweetList += map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in twitter_samples.strings() ])
 
 print("Loaded everything")
 
@@ -311,9 +309,11 @@ class cbow_char():
 			self.train_chars = train_chars
 			self.train_words = train_words
 			embedding = self.embedding_creator(train_chars,train_words)
-			# print("add loss please")
 
-			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=train_labels, inputs=embedding, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
+			embedding_trainer = tf.reshape(embedding,shape=[self.batch_size*self.word_max_len,self.word_embedding_size])
+			embedding_label = tf.reshape(train_labels, shape=[self.batch_size*self.word_max_len,1])
+
+			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
 			loss = tf.reduce_mean(p)
 
 			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
