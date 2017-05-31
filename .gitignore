@@ -3,3 +3,4 @@
 *.swp
 dataset/*
 embedding.ckpt*
+models/embedding.*
