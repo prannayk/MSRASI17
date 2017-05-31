@@ -15,7 +15,7 @@ stemmer = LancasterStemmer()
 st = LancasterStemmer()
 stoplist = stopwords.words('english')
 
-character_window = 2 # >= 1
+skip_window = 2 # >= 1
 
 def batch_normalize(X, eps=1e-8):
 	if X.get_shape().ndims == 4:	
@@ -175,10 +175,15 @@ def generate_batch(splice):
 	batch = tweetList[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	train_labels = np.ndarray([batch_size, word_max_len, 1])
 	count = 0
 	for tweet in batch:
 		tokens = tweet
 		for t in range(word_max_len):
+			l = t + np.random.randint(-skip_window, skip_window+1)
+			while l >= word_max_len or l < 0:
+				l = t + np.random.randint(-skip_window, skip_window+1)
+			train_labels[count,t,0] = word2count[tokens[t]]
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -195,7 +200,7 @@ def generate_batch(splice):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
-	return train_word, train_chars
+	return train_word, train_chars, train_labels
 
 def generate_batch_brown(splice):
 	global tweetList, batch_size, char2cencoding, word2count
@@ -203,10 +208,15 @@ def generate_batch_brown(splice):
 	batch = brownsentences[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	train_labels = np.ndarray([batch_size, word_max_len, 1])
 	count = 0
 	for tweet in batch:
 		tokens = tweet
 		for t in range(word_max_len):
+			l = t + np.random.randint(-skip_window, skip_window+1)
+			while l >= word_max_len or l < 0:
+				l = t + np.random.randint(-skip_window, skip_window+1)
+			train_labels[count,t,0] = word2count[tokens[t]]
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -220,7 +230,7 @@ def generate_batch_brown(splice):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
-	return train_word, train_chars
+	return train_word, train_chars, train_labels
 
 def generate_batch_reuters(splice):
 	global tweetList, batch_size, char2cencoding, word2count
@@ -228,10 +238,15 @@ def generate_batch_reuters(splice):
 	batch = reutersentences[splice*batch_size:splice*batch_size +  batch_size]
 	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
 	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	train_labels = np.ndarray([batch_size, word_max_len, 1])
 	count = 0
 	for tweet in batch:
 		tokens = tweet
 		for t in range(word_max_len):
+			l = t + np.random.randint(-skip_window, skip_window+1)
+			while l >= word_max_len or l < 0:
+				l = t + np.random.randint(-skip_window, skip_window+1)
+			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -245,10 +260,10 @@ def generate_batch_reuters(splice):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
-	return train_word, train_chars
+	return train_word, train_chars, train_labels
 
 class cbow_char():
-	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars ):
+	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled ):
 		self.learning_rate = learning_rate
 		self.dim1 = dim1
 		self.dim2 = dim2
@@ -263,17 +278,20 @@ class cbow_char():
 		self.beta = beta
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
+		self.num_sampled = num_sampled
 		# variables
 		with tf.device("/cpu:00"):
-			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
-			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
+			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0/math.sqrt(self.word_embedding_size)))
+			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0/math.sqrt(self.word_embedding_size)))
 			# attention matrix
-			weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
-			weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
-			weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
-			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
-			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
-			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+			# weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
+			# weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
+			# weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
+			# self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
+			# self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
+			# self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+			self.nce_weight = tf.Variable(tf.truncated_normal([self.vocabulary_size, self.word_embedding_size],stddev = 1.0/math.sqrt(self.word_embedding_size)))
+			self.nce_bias = tf.Variable(tf.zeros([self.vocabulary_size]))
 
 	def embedding_creator(self,train_chars, train_words):
 		with tf.device("/cpu:0"):
@@ -282,45 +300,23 @@ class cbow_char():
 
 			character_embedding = tf.reduce_mean(chars, axis=2)
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
-			# known = complete embedding
-			contextvector_list = list()
-			for i in range(word_max_len):
-				count = 0
-				contextvector = None
-				if i - 1 >= 0:
-					contextvector = complete_embedding[:,i - 1]
-					count += 1
-				if i + 1 < word_max_len:
-					if contextvector == None:
-						contextvector = complete_embedding[:,i + 1]
-					else:
-						contextvector += complete_embedding[:,i + 1]
-					count += 1
-
-				for j in range(1,character_window):
-					if i - j - 1 >= 0:
-						contextvector += complete_embedding[:,i -j -1]
-						count += 1
-					elif i +j + 1 < word_max_len:
-						contextvector += complete_embedding[:,i + j + 1]
-						count += 1
-				contextvector_list.append(contextvector / count)
-			context = tf.stack(contextvector_list,axis=1)
-			return context, complete_embedding
+			
+			return complete_embedding
 
 	def build_model(self):
 		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
+			train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, 1])
 			self.train_chars = train_chars
 			self.train_words = train_words
-			context,complete_embedding = self.embedding_creator(train_chars,train_words)
-			# loss = complete_embedding
-			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
-			p = tf.log(tf.nn.softmax(r))
-			loss = -tf.reduce_mean(p)
+			embedding = self.embedding_creator(train_chars,train_words)
+			# print("add loss please")
 
-			optimizer = tf.train.AdamOptimizer(self.learning_rate,self.beta).minimize(loss)
+			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=train_labels, inputs=embedding, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
+			loss = tf.reduce_mean(p)
+
+			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
 			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
@@ -328,16 +324,17 @@ class cbow_char():
 			normalized_embeddings_char = tf.stack(self.char_embeddings / norm)
 			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
-			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
+			valid_embeddings = self.embedding_creator(valid_chars,valid_words)
 			valid_run = tf.reshape(valid_embeddings, shape=[self.batch_size, self.word_max_len, 1, self.word_embedding_size])
-			# similarity = tf.matmul(valid_run, normalized_embeddings_word, transpose_b=True)
 			words_matrix = tf.reshape(tf.transpose(normalized_embeddings_word), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
 			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
+
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
 			self.validwords = valid_words
 			self.v_chars = valid_chars
-			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
+
+			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
 	def initialize(self):
 		self.init.run()
@@ -354,7 +351,8 @@ class cbow_char():
 		self.index += 1
 		feed_dict = {
 			self.train_words : batch[0],
-			self.train_chars : batch[1]
+			self.train_chars : batch[1],
+			self.train_labels : batch[2]
 		}
 		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
@@ -399,10 +397,11 @@ embeddingEncoder = cbow_char(
 		vocabulary_size = vocabulary_size,
 		beta = 0.001,
 		valid_words = None,
-		valid_chars = None
+		valid_chars = None,
+		num_sampled = 50
 	)
 print("Building model")
-optimizer, loss, train_words, train_chars, validwords, v_chars, similarity, embedding, norm_embedding = embeddingEncoder.build_model()
+optimizer, loss, train_words, train_chars, train_labels, validwords, v_chars, similarity, embedding, norm_embedding = embeddingEncoder.build_model()
 print("Setting up session")
 session = embeddingEncoder.session()
 print("Running init")
@@ -418,7 +417,7 @@ count = 0
 epoch = 3
 for ep in range(epoch):
 	print("Running for Brown")
-	valid_brown = generate_batch_brown(np.random.randint(1,20))
+	valid_brown = generate_batch_brown(np.random.randint(1,20))[:2]
 	start_time = time.time()
 	embeddingEncoder.reset()
 	for step in range(num_steps_brown):
@@ -436,7 +435,7 @@ for ep in range(epoch):
 	print("Running for reuters")
 	average_loss = 0
 	count = 0
-	valid_reuters = generate_batch_reuters(np.random.randint(1,20))
+	valid_reuters = generate_batch_reuters(np.random.randint(1,20))[:2]
 	start_time = time.time()
 	embeddingEncoder.reset()
 	for step in range(num_steps_reuters):
@@ -453,7 +452,7 @@ for ep in range(epoch):
 
 print("Running for tweets")
 
-valid_tweets = generate_batch(np.random.randint(1,100))
+valid_tweets = generate_batch(np.random.randint(1,100))[:2]
 num_epoch = 3
 for epoch in range(num_epoch):
 	average_loss = 0

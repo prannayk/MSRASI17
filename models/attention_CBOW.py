@@ -280,7 +280,11 @@ class cbow_char():
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
-			character_embedding = tf.reduce_mean(chars, axis=2)
+			attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
+			attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
+			attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
+			hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
+			character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
 			# known = complete embedding
 			contextvector_list = list()
