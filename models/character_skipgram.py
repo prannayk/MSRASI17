@@ -50,16 +50,16 @@ maxsize_upper_limit = 50
 
 print("Loaded from file")
 print("Loading Brown corpus")
-brownsentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in brown.sents() ])
+brownsentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in brown.sents() ])
 len_brown_sents = len(brownsentences)
 
 print("Loading Reuters corpus")
-reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in reuters.sents() ])
+reutersentences = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in reuters.sents() ])
 len_reuters_sents = len(reutersentences)
 
 print("Loading Twitter corpus")
-tweetList = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), tweetList)
-tweetList += map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',z.lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in twitter_samples.strings() ])
+tweetList = map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), tweetList)
+tweetList += map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), [i for i in twitter_samples.strings() ])
 
 print("Loaded everything")
 
