@@ -179,7 +179,7 @@ def generate_batch(splice):
 		tokens = tweet
 		for t in range(word_max_len):
 			l = t + np.random.randint(-skip_window, skip_window+1)
-			while l >= word_max_len or l < 0:
+			while l >= len(tokens) or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
 			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
@@ -212,7 +212,7 @@ def generate_batch_brown(splice):
 		tokens = tweet
 		for t in range(word_max_len):
 			l = t + np.random.randint(-skip_window, skip_window+1)
-			while l >= word_max_len or l < 0:
+			while l >= len(tokens) or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
 			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
@@ -242,7 +242,7 @@ def generate_batch_reuters(splice):
 		tokens = tweet
 		for t in range(word_max_len):
 			l = t + np.random.randint(-skip_window, skip_window+1)
-			while l >= word_max_len or l < 0:
+			while l >= len(tokens) or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
 			train_labels[count,t,0] = word2count[tokens[l]]
 			if t >= len(tokens):
