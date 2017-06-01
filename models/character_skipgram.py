@@ -348,6 +348,7 @@ class cbow_char():
 		self.saver.restore(self.session, './embedding.ckpt')
 		print("Restored model")
 	def train(self,batch):
+		print("Training now")
 		self.index += 1
 		feed_dict = {
 			self.train_words : batch[0],
