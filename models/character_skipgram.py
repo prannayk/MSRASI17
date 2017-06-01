@@ -10,6 +10,7 @@ from nltk.corpus import brown, reuters, twitter_samples, stopwords
 from nltk.tokenize import TweetTokenizer
 from nltk.stem.lancaster import LancasterStemmer
 import string
+import sets
 print("Loaded NLTK")
 tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
 stemmer = LancasterStemmer()
@@ -33,11 +34,12 @@ def batch_normalize(X, eps=1e-8):
 		raise NotImplemented
 	return X
 
-def token_processor(token_method):
-	return map(lambda x: re.sub('[%s]'%(punctuation),'',st.stem(x).lower()) ,[i for i in token_method])
+def token_processor(sentences):
+	tokens = []
+	return reduce(lambda x, y: merge(x,y) ,sentences)
 
 def sentence_processor(sentence_list):
-	return map(lambda y: map(lambda z: re.sub('[%s]'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and not st.stem(x) in stoplist , y)), sentence_list)
+	return map(lambda y: map(lambda z: re.sub('[%s]*'%(punctuation),'',st.stem(z).lower()) , filter(lambda x:  re.sub(('[%s]*'%(punctuation)),'',x) != '' and (not st.stem(x) in stoplist) and len(st.stem(x)) != 1 , y)), sentence_list)
 
 def process_tweets(tweetList, threshold_prob):
 	tokenList = dict()
@@ -69,10 +71,12 @@ def merge(first_list, second_list):
 	return first_list + list(set(second_list) - set(first_list))
 
 def filter_fn(x):
-	t = re.sub(('[%s]'%(punctuation)),'',x)
+	t = re.sub(('[%s]*'%(punctuation)),'',x)
 	if t == '':
 		return False
 	if len(t) == 1:
+		return False
+	if x in stoplist or t in stoplist:
 		return False
 	if 'www' in x or 'http' in x:
 		return False
@@ -112,17 +116,20 @@ reutersentences = sentence_processor([i for i in reuters.sents()])
 len_reuters_sents = len(reutersentences)
 print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
-tweetList += sentence_processor([i for i in twitter_samples.string()])
+tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brown.words())
-reutertokens = token_processor(reuters.words())
+browntokens = token_processor(brownsentences)
+reutertokens = token_processor(reutersentences)
 print("Merging: ")
 tokenList = list(set(merge(tokenList.keys(), merge(browntokens, reutertokens))) - set(stoplist))
 print("Processing tokens")
-tokenList = map(lambda x: re.sub('[%s]'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
+tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
+brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 print("Built dataset of tweets for learning")
 count2word,word2count = build_data(tokenList)
 vocabulary_size = len(word2count)
@@ -179,9 +186,12 @@ def generate_batch(splice,batch_list):
 		tokens = tweet
 		for t in range(word_max_len):
 			l = t + np.random.randint(-skip_window, skip_window+1)
-			while l >= len(tokens) or l < 0:
+			while l >= word_max_len or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
-			train_labels[count,t,0] = word2count[tokens[l]]
+			if l < len(tokens):
+				train_labels[count,t,0] = word2count[tokens[l]]
+			else:
+				train_labels[count,t,0] = word2count['UNK']
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -203,6 +213,7 @@ def generate_batch(splice,batch_list):
 class cbow_char():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled ):
 		self.learning_rate = learning_rate
+		self.num_entry = 1
 		self.dim1 = dim1
 		self.dim2 = dim2
 		self.dim3 = dim3
@@ -248,6 +259,7 @@ class cbow_char():
 			train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, 1])
 			self.train_chars = train_chars
 			self.train_words = train_words
+			self.train_labels = train_labels
 			embedding = self.embedding_creator(train_chars,train_words)
 
 			embedding_trainer = tf.reshape(embedding,shape=[self.batch_size*self.word_max_len,self.word_embedding_size])
@@ -273,7 +285,9 @@ class cbow_char():
 			self.init = tf.global_variables_initializer()
 			self.validwords = valid_words
 			self.v_chars = valid_chars
-
+			self.optimizer = optimizer
+			self.loss = loss
+			self.similarity = similarity
 			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
 	def initialize(self):
@@ -288,14 +302,13 @@ class cbow_char():
 		self.saver.restore(self.session, './embedding.ckpt')
 		print("Restored model")
 	def train(self,batch):
-		print("Training now")
 		self.index += 1
 		feed_dict = {
 			self.train_words : batch[0],
 			self.train_chars : batch[1],
 			self.train_labels : batch[2]
 		}
-		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
+		_,loss_val = self.session.run([self.optimizer, self.loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
 		if self.index % 10 == 0 and self.index > 0:
 			print("Average loss is: %s"%(self.average_loss/10))
@@ -312,19 +325,20 @@ class cbow_char():
 			self.v_chars : batch[1]
 		}
 		file_text = []
-		word_list = session.run(similarity, feed_dict=feed_dict)
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
 				word = petrol[0].argsort()[1]
 				file_text.append("Said word %s is similar to word %s"%(count2word[batch[0][t,l]],count2word[word]))
 		filedata = '\n'.join(file_text)
-		with open("./last_run.text",mode="w") as fil:
+		self.num_entry += 1
+		with open("./logs/last_run_%d.txt"%(self.num_entry),mode="w") as fil:
 			fil.write(filedata.encode('utf-8','ignore'))
 
 	def train_on_batch(self,num_epoch, batch_list):
 		num_step = len(batch_list) // self.batch_size
-		validate = generate_batch(np.random.randint(1,20),batch_size)[:2]
+		validate = generate_batch(np.random.randint(1,20),batch_list)[:2]
 		for epoch in range(num_epoch):
 			self.reset()
 			start_time = time.time()
