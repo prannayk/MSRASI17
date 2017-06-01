@@ -5,3 +5,4 @@ dataset/*
 embedding.ckpt*
 models/embedding.*
 models/logs/*
+models/logz/*

@@ -268,7 +268,7 @@ class cbow_char():
 			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
 			loss = tf.reduce_mean(p)
 
-			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+			optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
 			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
@@ -333,7 +333,7 @@ class cbow_char():
 				file_text.append("Said word %s is similar to word %s"%(count2word[batch[0][t,l]],count2word[word]))
 		filedata = '\n'.join(file_text)
 		self.num_entry += 1
-		with open("./logs/last_run_%d.txt"%(self.num_entry),mode="w") as fil:
+		with open("./logz/last_run_%d.txt"%(self.num_entry),mode="w") as fil:
 			fil.write(filedata.encode('utf-8','ignore'))
 
 	def train_on_batch(self,num_epoch, batch_list):
@@ -355,7 +355,7 @@ class cbow_char():
 
 print("Entering Embedding maker")
 embeddingEncoder = cbow_char(
-		learning_rate = 1e-3,
+		learning_rate = 5e-1,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
 		word_embedding_size = 128,
@@ -364,7 +364,7 @@ embeddingEncoder = cbow_char(
 		batch_size = batch_size,
 		char_size = char_size,
 		vocabulary_size = vocabulary_size,
-		beta = 0.001,
+		beta = 0.9,
 		valid_words = None,
 		valid_chars = None,
 		num_sampled = 50
