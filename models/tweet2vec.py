@@ -101,6 +101,7 @@ print("Loading tweets")
 f = open("../dataset/nepal.jsonl")
 text = f.readlines()
 tweetList = list()
+reverseListing = dict()
 count = 0
 for line in text:
 	tweet = json.loads(line)
