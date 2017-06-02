@@ -101,7 +101,6 @@ print("Loading tweets")
 f = open("../dataset/nepal.jsonl")
 text = f.readlines()
 tweetList = list()
-reverseListing = dict()
 count = 0
 for line in text:
 	tweet = json.loads(line)
@@ -109,6 +108,7 @@ for line in text:
 	reverseListing[count] = tweet['id']
 	count += 1
 print("Loaded tweets")
+original_tweets = tweetList 
 
 maxlen = 0
 maxlen_upper_limit = 50
@@ -123,7 +123,6 @@ reutersentences = sentence_processor([i for i in reuters.sents()])
 len_reuters_sents = len(reutersentences)
 print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
-original_tweets = list(tweetList)
 tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
@@ -139,7 +138,6 @@ tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: f
 brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
 reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
-original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
 count2word,word2count = build_data(tokenList)
 vocabulary_size = len(word2count)
@@ -156,13 +154,6 @@ maxsize = 0
 window_size = 5
 
 for tweet in tweetList:
-	if len(tweet) > maxlen:
-		if len(tweet) > maxlen_upper_limit:
-			del tweet
-			continue
-		else:
-			maxlen = len(tweet)
-for tweet in original_tweets:
 	if len(tweet) > maxlen:
 		if len(tweet) > maxlen_upper_limit:
 			del tweet
@@ -200,6 +191,16 @@ def convert2embedding(batch):
 	for tweet in batch:
 		tokens = tweet
 		for t in range(word_max_len):
+			l = t + np.random.randint(-skip_window, skip_window+1)
+			while l >= word_max_len or l < 0:
+				l = t + np.random.randint(-skip_window, skip_window+1)
+			if l < len(tokens):
+				if tokens[l] in word2count:
+					train_labels[count,t,0] = word2count[tokens[l]]
+				else:
+					train_labels[count, t, 0] = word2count['UNK']
+			else:
+				train_labels[count,t,0] = word2count['UNK']
 			if t >= len(tokens):
 				train_word[count, t] = word2count['UNK']
 				train_chars[count, t] = np.zeros_like(train_chars[count,t])
@@ -216,7 +217,6 @@ def convert2embedding(batch):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
-	return train_word, train_chars
 
 def generate_batch(splice,batch_list):
 	batch = batch_list[splice*batch_size:splice*batch_size +  batch_size]
@@ -229,9 +229,9 @@ def generate_batch(splice,batch_list):
 			l = t + np.random.randint(-skip_window, skip_window+1)
 			while l >= word_max_len or l < 0:
 				l = t + np.random.randint(-skip_window,skip_window+1)
-			if l < len(tweet):
-				if tweet[l] in word2count:
-					train_labels[count,t,0] = word2count[tweet[l]]
+			if l < len(tokens):
+				if tokens[l] in word2count:
+					train_labels[count,t,0] = word2count[tokens[l]]
 				else:
 					train_labels[count, t, 0] = word2count['UNK']
 			else:
@@ -278,24 +278,43 @@ class cbow_char():
 
 			character_embedding = tf.reduce_mean(chars, axis=2)
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
-			
-			return complete_embedding
+			# known = complete embedding
+			contextvector_list = list()
+			for i in range(word_max_len):
+				count = 0
+				contextvector = None
+				if i - 1 >= 0:
+					contextvector = complete_embedding[:,i - 1]
+					count += 1
+				if i + 1 < word_max_len:
+					if contextvector == None:
+						contextvector = complete_embedding[:,i + 1]
+					else:
+						contextvector += complete_embedding[:,i + 1]
+					count += 1
+
+				for j in range(1,character_window):
+					if i - j - 1 >= 0:
+						contextvector += complete_embedding[:,i -j -1]
+						count += 1
+					elif i +j + 1 < word_max_len:
+						contextvector += complete_embedding[:,i + j + 1]
+						count += 1
+				contextvector_list.append(contextvector / count)
+			context = tf.stack(contextvector_list,axis=1)
+			return context, complete_embedding
 
 	def build_model(self):
 		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
-			train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, 1])
 			self.train_chars = train_chars
 			self.train_words = train_words
-			self.train_labels = train_labels
-			embedding = self.embedding_creator(train_chars,train_words)
-
-			embedding_trainer = tf.reshape(embedding,shape=[self.batch_size*self.word_max_len,self.word_embedding_size])
-			embedding_label = tf.reshape(train_labels, shape=[self.batch_size*self.word_max_len,1])
-
-			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
-			loss = tf.reduce_mean(p)
+			context,complete_embedding = self.embedding_creator(train_chars,train_words)
+			# loss = complete_embedding
+			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
+			p = tf.log(tf.nn.softmax(r))
+			loss = -tf.reduce_mean(p)
 
 			optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta).minimize(loss)
 
@@ -318,14 +337,12 @@ class cbow_char():
 			self.loss = loss
 			self.similarity = similarity
 
-			self.ir_words = tf.placeholder(tf.int32,shape=[self.total_batch_size, self.word_max_len])
-			self.ir_chars = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len, self.char_max_len])
+			self.ir_words = tf.placeholder(tf.int32,shape=[None, self.word_max_len])
+			self.ir_chars = tf.placeholder(tf.int32, shape=[None, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
-			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
-			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
-			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1]),axis=1)
+			query_vectors = tf.reduce_mean(embedding_creator(self.query_list),axis=1)
 			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
 
 			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
@@ -393,12 +410,9 @@ class cbow_char():
 					self.validate(validate)
 			self.save()
 
-	def create_query(self,num_queries,query_tokens,num_total):
-		print("Petrol")
+	def create_query(self,num_queries,query_tokens):
 		self.num_queries = num_queries
-		self.query_tokens = query_tokens
 		query_size = len(query_tokens)
-		self.total_batch_size = num_total
 		query_tweet_list = []
 		for r in range(num_queries):
 			l,t = np.random.randint(query_size,size=[2])
@@ -406,17 +420,14 @@ class cbow_char():
 				l,t = np.random.randint(query_size,size=[2])
 			query_tweet_list.append([self.query_tokens[l],self.query_tokens[t]])
 		self.query_list = convert2embedding(query_tweet_list)
-		self.query_lit = list()
 
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
-		ident = str(case) + str(np.random.randint(100))
+		ident = case + str(np.random.randint(100))
 		batch = convert2embedding(batch_list)
 		feed_dict = {
 			self.ir_words : batch[0],
-			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[0],
-			self.query_lit[1] : self.query_list[1]
+			self.ir_chars : batch[1]
 		}
 		query_similarity = self.session(self.query_similarity,feed_dict=feed_dict)
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),lambda x: x[1])]
@@ -443,7 +454,7 @@ embeddingEncoder = cbow_char(
 		num_sampled = 50
 	)
 
-embeddingEncoder.create_query(5,query_tokens,len(original_tweets))
+embeddingEncoder.create_query(5,query_tokens)
 print("Building model")
 _ = embeddingEncoder.build_model()
 print("Setting up session")
@@ -454,7 +465,6 @@ print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
 embeddingEncoder.train_on_batch(5,brownsentences)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
