@@ -213,7 +213,7 @@ def generate_batch(splice,batch_list,id_list):
 	for tweet in batch:
 		if id_list[count] in  avail_tweet:
 			train_labels[count] = [0,1,0]
-		else if id_list[count] in need_tweet:
+		elif id_list[count] in need_tweet:
 			train_labels[count] = [1,0,0]
 		else:
 			train_labels[count] = [0,0,1]
