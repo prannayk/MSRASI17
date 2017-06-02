@@ -1,6 +1,6 @@
 *.jsonl
 *.ckpt
-*.swp
+*.sw*
 dataset/*
 embedding.ckpt*
 models/embedding.*

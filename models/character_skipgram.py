@@ -189,7 +189,10 @@ def generate_batch(splice,batch_list):
 			while l >= word_max_len or l < 0:
 				l = t + np.random.randint(-skip_window, skip_window+1)
 			if l < len(tokens):
-				train_labels[count,t,0] = word2count[tokens[l]]
+				if tokens[l] in word2count:
+					train_labels[count,t,0] = word2count[tokens[l]]
+				else:
+					train_labels[count, t, 0] = word2count['UNK']
 			else:
 				train_labels[count,t,0] = word2count['UNK']
 			if t >= len(tokens):
@@ -379,8 +382,8 @@ embeddingEncoder.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(3,brownsentences)
+embeddingEncoder.train_on_batch(5,brownsentences)
 print("Running for reuters")
-embeddingEncoder.train_on_batch(3, reutersentences)
+embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(5, tweetList)
+embeddingEncoder.train_on_batch(10, tweetList)
