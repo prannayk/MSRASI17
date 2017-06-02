@@ -278,24 +278,43 @@ class cbow_char():
 
 			character_embedding = tf.reduce_mean(chars, axis=2)
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
-			
-			return complete_embedding
+			# known = complete embedding
+			contextvector_list = list()
+			for i in range(word_max_len):
+				count = 0
+				contextvector = None
+				if i - 1 >= 0:
+					contextvector = complete_embedding[:,i - 1]
+					count += 1
+				if i + 1 < word_max_len:
+					if contextvector == None:
+						contextvector = complete_embedding[:,i + 1]
+					else:
+						contextvector += complete_embedding[:,i + 1]
+					count += 1
+
+				for j in range(1,character_window):
+					if i - j - 1 >= 0:
+						contextvector += complete_embedding[:,i -j -1]
+						count += 1
+					elif i +j + 1 < word_max_len:
+						contextvector += complete_embedding[:,i + j + 1]
+						count += 1
+				contextvector_list.append(contextvector / count)
+			context = tf.stack(contextvector_list,axis=1)
+			return context, complete_embedding
 
 	def build_model(self):
 		with tf.device("/cpu:0"):
 			train_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 			train_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
-			train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, 1])
 			self.train_chars = train_chars
 			self.train_words = train_words
-			self.train_labels = train_labels
-			embedding = self.embedding_creator(train_chars,train_words)
-
-			embedding_trainer = tf.reshape(embedding,shape=[self.batch_size*self.word_max_len,self.word_embedding_size])
-			embedding_label = tf.reshape(train_labels, shape=[self.batch_size*self.word_max_len,1])
-
-			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
-			loss = tf.reduce_mean(p)
+			context,complete_embedding = self.embedding_creator(train_chars,train_words)
+			# loss = complete_embedding
+			r = batch_normalize(tf.matmul(context, complete_embedding, transpose_a=True))
+			p = tf.log(tf.nn.softmax(r))
+			loss = -tf.reduce_mean(p)
 
 			optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta).minimize(loss)
 
