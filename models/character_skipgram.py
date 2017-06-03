@@ -194,8 +194,8 @@ char_size = len(char2cencoding)
 def convert2embedding(batch):
 	global tweetList, batch_size, char2cencoding, word2count
 	global char_max_len, word_max_len, flag
-	train_word = np.ndarray([batch_size,word_max_len],dtype=np.int32)
-	train_chars = np.ndarray([batch_size,word_max_len, char_max_len])
+	train_word = np.ndarray([len(batch),word_max_len],dtype=np.int32)
+	train_chars = np.ndarray([len(batch),word_max_len, char_max_len])
 	count = 0
 	for tweet in batch:
 		tokens = tweet
@@ -216,6 +216,8 @@ def convert2embedding(batch):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
+		if count % 100 == 0 and count > 0:
+			print(count)
 	return train_word, train_chars
 
 def generate_batch(splice,batch_list):
@@ -415,16 +417,18 @@ class cbow_char():
 		feed_dict = {
 			self.ir_words : batch[0],
 			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[0],
-			self.query_lit[1] : self.query_list[1]
+			self.query_lit[0] : self.query_list[1],
+			self.query_lit[1] : self.query_list[0]
 		}
-		query_similarity = self.session(self.query_similarity,feed_dict=feed_dict)
-		sorted_queries = [i for i in sorted(enumerate(query_similarity),lambda x: x[1])]
+		query_similarity = self.session.run(self.query_similarity,feed_dict=feed_dict)
+		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
 		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseTweetList[t[0]],count,t[1],ident))
+			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
 			count += 1
+		with open('./skipgram.result.text',mode="w") as f:
+			f.write('\n'.join(text_lines))
 
 print("Entering Embedding maker")
 embeddingEncoder = cbow_char(
@@ -454,7 +458,6 @@ print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
 embeddingEncoder.train_on_batch(5,brownsentences)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")

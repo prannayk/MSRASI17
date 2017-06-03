@@ -116,29 +116,31 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
-print("Loading Twitter corpus")
+#print("Loading Brown corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
+#print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = tweetList
-tweetList += sentence_processor([i for i in twitter_samples.strings()])
+#tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+#browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
+reutertokens = []
+browntokens = []
 print("Merging: ")
 
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -222,7 +224,7 @@ def generate_batch(splice,batch_list,id_list):
 	return train_word, train_chars, train_labels
 
 class tweet2vec():
-	def __init__(batch_size, vocabulary_size, word_max_len,word_embedding_size=128, tweet_embedding_size=256, num_classes=3, learning_rate=5e-1,name='tweet2vec.py'):
+	def __init__(self,batch_size, vocabulary_size, word_max_len,word_embedding_size=128, tweet_embedding_size=256, num_classes=3, learning_rate=5e-1,name='tweet2vec.py'):
 		self.batch_size = batch_size
 		self.word_embedding_size = word_embedding_size
 		self.num_classes = num_classes
@@ -233,73 +235,75 @@ class tweet2vec():
 		self.name = name
 		self.num_entry = 0
 
-		self.grum_weights = tf.stack([tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_1")]*self.batch_size)
-		self.gru1_weights = tf.stack([tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_2")]*self.batch_size)
+		self.grum_weights = tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_1")
+		self.gru1_weights = tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_2")
 
 		self.word_embedding = tf.Variable(tf.random_uniform(shape=[self.vocabulary_size, self.word_embedding_size]))
 
 		self.gru_fwd_input_weights = {
-			'r_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_3")]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_4")]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_5")]*self.batch_size)
+			'r_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_3"),
+			'z_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_4"),
+			'h_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_5")
 		}
-		self.gru_fwd_hidden1_weights = {
-			'r_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_6")]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_7")]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_8")]*self.batch_size)
+		self.gru_fwd_hidden_weights = {
+			'r_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_6"),
+			'z_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_7"),
+			'h_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_8")
 		}
 		self.gru_fwd_bias = {
-			'r_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size)
+			'r_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size])),
+			'z_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size])),
+			'h_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size]))
 		}
 		self.gru_bwd_input_weights = {
-			'r_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_9")]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_10")]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_11")]*self.batch_size)
+			'r_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_9"),
+			'z_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_10"),
+			'h_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_11")
 		}
-		self.gru_bwd_hidden1_weights = {
-			'r_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_12")]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_13")]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_14")]*self.batch_size)
+		self.gru_bwd_hidden_weights = {
+			'r_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_12"),
+			'z_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_13"),
+			'h_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_14")
 		}
 		self.gru_bwd_bias = {
-			'r_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size),
-			'z_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size),
-			'h_t' : tf.stack([tf.Variable(tf.zeros(shape=[self.word_embedding_size])),]*self.batch_size)
+			'r_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size])),
+			'z_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size])),
+			'h_t' : tf.Variable(tf.zeros(shape=[self.word_embedding_size]))
 		}
 
-		self.tweet_class = tf.stack([tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.tweet_embedding_size*self.num_classes),shape=[self.tweet_embedding_size,self.num_classes]),name="gru_weights_15")]*self.batch_size)
-		self.bias_class = tf.stack([tf.zeros(shape=[self.num_classes])]*batch_size)
+		self.tweet_class = tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.tweet_embedding_size*self.num_classes),shape=[self.tweet_embedding_size,self.num_classes]),name="gru_weights_15")
+		self.bias_class = tf.zeros(shape=[self.num_classes])
 
 	def tweet_embedding_creator(self,train_input):
-		word_embedding = tf.embedding_lookup(self.word_embedding,train_input)
+		word_embedding = tf.nn.embedding_lookup(self.word_embedding,train_input)
 		tweet_embedding = []
-		for batch in range(train_input.shape[0]):
-			hidden1 = tf.random_normal(shape=[self.batch_size,self.word_embedding_size])
+		for batch in range(int(train_input.get_shape()[0])):
+			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
-				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['r_t'],word_embedding[batch,t]) + tf.matmul(self.gru_fwd_hidden_weights['r_t'],hidden) + self.gru_fwd_bias['r_t'],dim=[0,1]))
-				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['z_t'],word_embedding[batch,t]) + tf.matmul(self.gru_fwd_hidden_weights['z_t'],hidden) + self.gru_fwd_bias['z_t'],dim=[0,1]))
-				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['h_t'],word_embedding[batch,t]) + tf.matmul(self.gru_fwd_hidden_weights['h_t'],tf.matmul(hidden,rt)) + self.gru_fwd_bias['h_t'],dim=[0,1]))
-				hidden = tf.matmul((1 - zt),hidden) + tf.matmul(zt,hid)
+				inputv = tf.reshape(word_embedding[batch,t],shape=[1,self.word_embedding_size])
+				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['r_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['r_t'],hidden,transpose_b=True) + self.gru_fwd_bias['r_t'],dim=[0,1]))
+				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_fwd_bias['z_t'],dim=[0,1]))
+				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_fwd_bias['h_t'],dim=[0,1]))
+				hidden = tf.matmul((1 - zt),hidden,transpose_b=True) + tf.matmul(zt,hid,transpose_b=True)
 
-			hidden1 = tf.random_normal(shape=[self.batch_size,self.word_embedding_size])
+			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
-				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['r_t'],word_embedding[batch,word_max_len - t - 1]) + tf.matmul(self.gru_bwd_hidden1_weights['r_t'],hidden1) + self.gru_bwd_bias['r_t'],dim=[0,1]))
-				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['z_t'],word_embedding[batch,word_max_len - t - 1]) + tf.matmul(self.gru_bwd_hidden1_weights['z_t'],hidden1) + self.gru_bwd_bias['z_t'],dim=[0,1]))
-				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['h_t'],word_embedding[batch,word_max_len - t - 1]) + tf.matmul(self.gru_bwd_hidden1_weights['h_t'],tf.matmul(hidden1,rt)) + self.gru_bwd_bias['h_t'],dim=[0,1]))
-				hidden1 = tf.matmul((1 - zt),hidden1) + tf.matmul(zt,hid)
+				inputv = tf.reshape(word_embedding[batch,word_max_len - t - 1],shape=[1,self.word_embedding_size])
+				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['r_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['r_t'],hidden,transpose_b=True) + self.gru_bwd_bias['r_t'],dim=[0,1]))
+				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_bwd_bias['z_t'],dim=[0,1]))
+				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_bwd_bias['h_t'],dim=[0,1]))
+				hidden1 = tf.matmul((1 - zt),hidden,transpose_b=True) + tf.matmul(zt,hid,transpose_b=True)
 
-			tweet_embedding.append(tf.matmul(self.grum_weights,hidden) + tf.matmul(self.gru1_weights,hidden1))
+			tweet_embedding.append(tf.matmul(hidden,self.grum_weights) + tf.matmul(hidden1,self.gru1_weights))
 		return tf.stack(tweet_embedding)
 
 	def build_model(self):
 		self.train_input = tf.placeholder(tf.int32, shape=[self.batch_size,self.word_max_len])
 		self.train_classes = tf.placeholder(tf.int32, shape=[self.batch_size,self.num_classes])
-		tweet_embedding = self.tweet_embedding_creator(self.train_input)
+		self.tweet_embedding = self.tweet_embedding_creator(self.train_input)
 		# regularization
 		regularization = reduce(lambda x,y: tf.nn.l2_loss(y)+x ,[i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())])
-		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=(tf.matmul(self.tweet_class,self.tweet_embedding) + self.bias_class)) + (0.3*regularization)
+		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=(tf.matmul(self.tweet_embedding,tf.stack([self.tweet_class]*self.batch_size)) + self.bias_class)) + (0.3*regularization)
 		self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 		self.batch_input = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len])
@@ -383,15 +387,15 @@ class tweet2vec():
 			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseTweetList[t[0]],count,t[1],ident))
 			count += 1
 
-self.batch_size = 50
-tweetvec = tweet2vec(batch_size=batch_size,vocabulary_size=vocabulary_size)
+batch_size = 50
+tweetvec = tweet2vec(batch_size,vocabulary_size,word_max_len)
 print("Building model")
 tweetvec.build_model()
 print("Rolling session and init")
 tweetvec.initialize()
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
+#embeddingEncoder.train_on_batch(5,brownsentences)
 embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
