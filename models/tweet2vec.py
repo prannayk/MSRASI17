@@ -294,7 +294,7 @@ class tweet2vec():
 				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_bwd_bias['h_t'],dim=[0,1]))
 				hidden1 = tf.matmul((1 - zt),hidden,transpose_b=True) + tf.matmul(zt,hid,transpose_b=True)
 
-			tweet_embedding.append(tf.matmul(hidden,self.grum_weights) + tf.matmul(hidden1,self.gru1_weights))
+			tweet_embedding.append(tf.transpose(tf.matmul(hidden,self.grum_weights) + tf.matmul(hidden1,self.gru1_weights)))
 		return tf.stack(tweet_embedding)
 
 	def build_model(self):
@@ -303,11 +303,11 @@ class tweet2vec():
 		self.tweet_embedding = self.tweet_embedding_creator(self.train_input)
 		# regularization
 		regularization = reduce(lambda x,y: tf.nn.l2_loss(y)+x ,[i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())])
-		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=(tf.matmul(self.tweet_embedding,tf.stack([self.tweet_class]*self.batch_size)) + self.bias_class)) + (0.3*regularization)
+		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding) + self.bias_class,shape=[self.batch_size,3])) + (0.3*regularization)
 		self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 		self.batch_input = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len])
-		self.batch_prob_row = tf.nn.softmax(self.tweet_embedding_creator(self.batch_input))
+		self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding_creator(self.batch_input)) + self.bias_class,shape=[self.batch_size,3]))
 		self.batch_prob = self.batch_prob_row[:,0]
 
 		self.saver = tf.train.Saver()
