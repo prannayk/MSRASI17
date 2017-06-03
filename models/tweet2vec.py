@@ -185,7 +185,7 @@ char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
 batch_size = 100
-char_size = len(char2cencoding)
+# char_size = len(char2cencoding)
 
 def convert2embedding(batch):
 	global tweetList, batch_size, char2cencoding, word2count
@@ -224,7 +224,7 @@ def generate_batch(splice,batch_list,id_list):
 	return train_word, train_chars, train_labels
 
 class tweet2vec():
-	def __init__(self,batch_size, vocabulary_size, word_max_len,word_embedding_size=128, tweet_embedding_size=256, num_classes=3, learning_rate=5e-1,name='tweet2vec.py'):
+	def __init__(self,batch_size, vocabulary_size, word_max_len,total_batch_size=50,word_embedding_size=128, tweet_embedding_size=256, num_classes=3, learning_rate=5e-1,name='tweet2vec.py'):
 		self.batch_size = batch_size
 		self.word_embedding_size = word_embedding_size
 		self.num_classes = num_classes
@@ -233,6 +233,7 @@ class tweet2vec():
 		self.word_max_len = word_max_len
 		self.learning_rate = learning_rate
 		self.name = name
+		self.total_batch_size = total_batch_size
 		self.num_entry = 0
 
 		self.grum_weights = tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_1")
@@ -281,21 +282,20 @@ class tweet2vec():
 			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
 				inputv = tf.reshape(word_embedding[batch,t],shape=[1,self.word_embedding_size])
-				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['r_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['r_t'],hidden,transpose_b=True) + self.gru_fwd_bias['r_t'],dim=[0,1]))
-				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_fwd_bias['z_t'],dim=[0,1]))
-				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_fwd_bias['h_t'],dim=[0,1]))
+				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_fwd_input_weights['r_t']) + tf.matmul(hidden, self.gru_fwd_hidden_weights['r_t']) + self.gru_fwd_bias['r_t'],dim=[0,1]))
+				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_fwd_input_weights['z_t']) + tf.matmul(hidden, self.gru_fwd_hidden_weights['z_t']) + self.gru_fwd_bias['z_t'],dim=[0,1]))
+				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_fwd_input_weights['h_t']) + tf.matmul(hidden*rt,self.gru_fwd_hidden_weights['h_t']) + self.gru_fwd_bias['h_t'],dim=[0,1]))
 				hidden = (1 - zt)*hidden + zt*hid
 
 			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
 				inputv = tf.reshape(word_embedding[batch,word_max_len - t - 1],shape=[1,self.word_embedding_size])
-				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['r_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['r_t'],hidden,transpose_b=True) + self.gru_bwd_bias['r_t'],dim=[0,1]))
-				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_bwd_bias['z_t'],dim=[0,1]))
-				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_bwd_bias['h_t'],dim=[0,1]))
-				print(zt.get_shape())
-				print(hid.get_shape())
+				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_bwd_input_weights['r_t']) + tf.matmul(hidden,self.gru_bwd_hidden_weights['r_t']) + self.gru_bwd_bias['r_t'],dim=[0,1]))
+				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_bwd_input_weights['z_t']) + tf.matmul(hidden,self.gru_bwd_hidden_weights['z_t']) + self.gru_bwd_bias['z_t'],dim=[0,1]))
+				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_bwd_input_weights['h_t']) + tf.matmul(hidden*rt,self.gru_bwd_hidden_weights['h_t']) + self.gru_bwd_bias['h_t'],dim=[0,1]))
 				hidden1 = (1 - zt)*hidden + zt*hid
 			tweet_embedding.append(tf.transpose(tf.matmul(hidden,self.grum_weights) + tf.matmul(hidden1,self.gru1_weights)))
+			print("Rolling..%d"%(batch+1))
 		return tf.stack(tweet_embedding)
 
 	def build_model(self):
@@ -303,12 +303,16 @@ class tweet2vec():
 		self.train_classes = tf.placeholder(tf.int32, shape=[self.batch_size,self.num_classes])
 		self.tweet_embedding = self.tweet_embedding_creator(self.train_input)
 		# regularization
-		regularization = reduce(lambda x,y: tf.nn.l2_loss(y)+x ,[i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())])
-		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding) + self.bias_class,shape=[self.batch_size,3])) + (0.3*regularization)
+		gru_weights = [i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())]
+		regularization = tf.nn.l2_loss(gru_weights[0])
+		for i in range(1,len(gru_weights)):
+			regularization += tf.nn.l2_loss(gru_weights[i])
+		# regularization = reduce(lambda x,y: tf.nn.l2_loss(y)+x ,[i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())])
+		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,3]) + tf.stack([self.bias_class]*self.batch_size)) + (0.3*regularization)
 		self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 		self.batch_input = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len])
-		self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding_creator(self.batch_input)) + self.bias_class,shape=[self.batch_size,3]))
+		self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.total_batch_size),self.tweet_embedding_creator(self.batch_input)) + self.bias_class,shape=[self.batch_size,3]))
 		self.batch_prob = self.batch_prob_row[:,0]
 
 		self.saver = tf.train.Saver()
@@ -388,7 +392,9 @@ class tweet2vec():
 			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseTweetList[t[0]],count,t[1],ident))
 			count += 1
 
-batch_size = 50
+batch_size = 10
+vocabulary_size = 100
+word_max_len = 30
 tweetvec = tweet2vec(batch_size,vocabulary_size,word_max_len)
 print("Building model")
 tweetvec.build_model()
@@ -396,7 +402,7 @@ print("Rolling session and init")
 tweetvec.initialize()
 print("Running for brown and reuters")
 print("Running for Brown")
-#embeddingEncoder.train_on_batch(5,brownsentences)
+embeddingEncoder.train_on_batch(5,brownsentences)
 embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
