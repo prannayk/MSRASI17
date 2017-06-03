@@ -284,7 +284,7 @@ class tweet2vec():
 				rt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['r_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['r_t'],hidden,transpose_b=True) + self.gru_fwd_bias['r_t'],dim=[0,1]))
 				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_fwd_bias['z_t'],dim=[0,1]))
 				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_fwd_bias['h_t'],dim=[0,1]))
-				hidden = tf.matmul((1 - zt),hidden,transpose_b=True) + tf.matmul(zt,hid,transpose_b=True)
+				hidden = (1 - zt)*hidden + zt*hid
 
 			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
@@ -294,8 +294,7 @@ class tweet2vec():
 				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_bwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_bwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_bwd_bias['h_t'],dim=[0,1]))
 				print(zt.get_shape())
 				print(hid.get_shape())
-				hidden1 = tf.matmul((1 - zt),hidden,transpose_a=True) + tf.matmul(zt,hid,transpose_a=True)
-			print(hidden1.get_shape())
+				hidden1 = (1 - zt)*hidden + zt*hid
 			tweet_embedding.append(tf.transpose(tf.matmul(hidden,self.grum_weights) + tf.matmul(hidden1,self.gru1_weights)))
 		return tf.stack(tweet_embedding)
 
