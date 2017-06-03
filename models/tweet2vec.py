@@ -285,7 +285,8 @@ class tweet2vec():
 				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['z_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['z_t'],hidden,transpose_b=True) + self.gru_fwd_bias['z_t'],dim=[0,1]))
 				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(self.gru_fwd_input_weights['h_t'],inputv,transpose_b=True) + tf.matmul(self.gru_fwd_hidden_weights['h_t'],tf.matmul(hidden,rt),transpose_b=True) + self.gru_fwd_bias['h_t'],dim=[0,1]))
 				hidden = (1 - zt)*hidden + zt*hid
-
+				print(hidden.get_shape())
+				print(rt.get_shape())
 			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
 				inputv = tf.reshape(word_embedding[batch,word_max_len - t - 1],shape=[1,self.word_embedding_size])
