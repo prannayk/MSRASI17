@@ -308,7 +308,6 @@ class tweet2vec():
 		regularization = tf.nn.l2_loss(gru_weights[0])
 		for i in range(1,len(gru_weights)):
 			regularization += tf.nn.l2_loss(gru_weights[i])
-		# regularization = reduce(lambda x,y: tf.nn.l2_loss(y)+x ,[i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())])
 		self.loss = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,3]) + tf.stack([self.bias_class]*self.batch_size)) + (0.3*regularization)
 		self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
