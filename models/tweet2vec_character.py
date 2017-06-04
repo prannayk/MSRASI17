@@ -128,29 +128,27 @@ maxsize_upper_limit = 50
 
 print("Loaded from file")
 print("Loading Brown corpus")
-#brownsentences = sentence_processor([i for i in brown.sents()])
-#len_brown_sents = len(brownsentences)
-#print("Loading Reuters corpus")
-#reutersentences = sentence_processor([i for i in reuters.sents()])
-#len_reuters_sents = len(reutersentences)
-#print("Loading Twitter corpus")
+brownsentences = sentence_processor([i for i in brown.sents()])
+len_brown_sents = len(brownsentences)
+print("Loading Reuters corpus")
+reutersentences = sentence_processor([i for i in reuters.sents()])
+len_reuters_sents = len(reutersentences)
+print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
-#tweetList += sentence_processor([i for i in twitter_samples.strings()])
+tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-##browntokens = token_processor(brownsentences)
-#reutertokens = token_processor(reutersentences)
+browntokens = token_processor(brownsentences)
+reutertokens = token_processor(reutersentences)
 print("Merging: ")
-reutertokens = []
-browntokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -485,7 +483,6 @@ class cbow_char():
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
 					self.validate(validate)
-			self.save()
 
 	# def create_query(self,num_queries,query_tokens,num_total):
 	# 	print("Petrol")
@@ -502,25 +499,6 @@ class cbow_char():
 	# 	self.query_list = convert2embedding(query_tweet_list)
 	# 	self.query_lit = list()
 
-	def rank_on_batch(self, batch_list,case):
-		print("Getting results")
-		ident = str(case) + str(np.random.randint(100))
-		batch = convert2embedding(batch_list)
-		feed_dict = {
-			self.ir_words : batch[0],
-			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[1],
-			self.query_lit[1] : self.query_list[0]
-		}
-		query_similarity = self.session.run(self.query_similarity,feed_dict=feed_dict)
-		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
-		text_lines = []
-		count = 0
-		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
-			count += 1
-		with open('./skipgram.result.text',mode="w") as f:
-			f.write('\n'.join(text_lines))
 
 	def train_classifier(self, batch):
 		self.index += 1
@@ -568,7 +546,6 @@ class cbow_char():
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
 					self.validate_classifier(validate,reverseList)
-			self.save()
 
 	def rank_on_batch_classifier(self, batch_list,case):
 		print("Getting results")
@@ -615,8 +592,6 @@ session = embeddingEncoder.session()
 print("Running init")
 embeddingEncoder.initialize()
 print("Variables Initialized")
-embeddingEncoder.train_on_batch_classifier(5, original_tweets,reverseListing.values())
-embeddingEncoder.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
 print("Running for brown and reuters")
 print("Running for Brown")
 embeddingEncoder.train_on_batch(5,brownsentences)
@@ -624,6 +599,5 @@ print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
 embeddingEncoder.train_on_batch(5, tweetList)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
-embeddingEncoder.train_on_batch_classifier(5, original_tweets)
+embeddingEncoder.train_on_batch_classifier(5, original_tweets, reverseList.values())
 embeddingEncoder.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
