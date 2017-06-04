@@ -263,17 +263,17 @@ def generate_batch_classifier(splice,batch_list,id_list):
 	train_word,train_chars, train_labels = generate_batch(splice,batch_list)
 	count = 0
 	global word_max_len, word2count
-	train_labels = np.ndarray([batch_size,3])
+	train_classes = np.ndarray([batch_size,3])
 	id_list_batch = id_list[splice*batch_size:splice*batch_size + batch_size]
 	for tweet in batch:
 		if id_list[count] in  avail_tweet:
-			train_labels[count] = [0,1,0]
+			train_classes[count] = [0,1,0]
 		elif id_list[count] in need_tweet:
-			train_labels[count] = [1,0,0]
+			train_classes[count] = [1,0,0]
 		else:
-			train_labels[count] = [0,0,1]
+			train_classes[count] = [0,0,1]
 		count += 1	
-	return train_word,train_chars, train_labels, train_labels
+	return train_word,train_chars, train_labels, train_classes
 
 class cbow_char():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, tweet_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled, num_classes = 3):
@@ -352,7 +352,7 @@ class cbow_char():
 			return complete_embedding
 
 	def gru_embedding(self,word_embedding):
-		with tf.device("/gpu:0"):
+		with tf.device("/cpu:0"):
 			tweet_embedding = []
 			for batch in range(int(word_embedding.get_shape()[0])):
 				hidden = tf.random_normal(shape=[1,self.word_embedding_size])
@@ -403,8 +403,6 @@ class cbow_char():
 			words_matrix = tf.reshape(tf.transpose(normalized_embeddings_word), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
 			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
 
-			self.saver = tf.train.Saver()
-			self.init = tf.global_variables_initializer()
 			self.validwords = valid_words
 			self.v_chars = valid_chars
 			self.optimizer = optimizer
@@ -416,11 +414,13 @@ class cbow_char():
 			regularization = tf.nn.l2_loss(gru_weights[0])
 			for i in range(1,len(gru_weights)):
 				regularization += tf.nn.l2_loss(gru_weights[i])
-			self.loss_classifier = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,3]) + tf.stack([self.bias_class]*self.batch_size)) + (0.3*regularization)
+			self.loss_classifier = -tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.nn.l2_normalize(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,3]) + tf.stack([self.bias_class]*self.batch_size),dim=[0,1]))) + (0.3*regularization)
 			self.optimizer_classifier = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_classifier)
 
 			self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,self.num_classes]) + tf.stack([self.bias_class]*self.batch_size))
 			self.batch_prob = self.batch_prob_row[:,0]
+			self.saver = tf.train.Saver()
+			self.init = tf.global_variables_initializer()
 
 			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
@@ -533,7 +533,7 @@ class cbow_char():
 		_, loss_val = self.session.run([self.optimizer_classifier,self.loss_classifier],feed_dict=feed_dict)
 		_ = self.session.run([self.optimizer, self.loss],feed_dict=feed_dict)
 		self.average_loss += loss_val
-		if self.index % 10 and self.index > 0:
+		if self.index % 10 == 0 and self.index > 0:
 			print("Average loss is: %s"%(self.average_loss/10))
 			self.average_reset()
 
@@ -561,7 +561,7 @@ class cbow_char():
 			start_time = time.time()
 			for step in range(num_step):
 				self.average_reset()
-				self.train(generate_batch_classifier(step, batch_list,reverseList)[:1])
+				self.train_classifier(generate_batch_classifier(step, batch_list,reverseList))
 				if step % 10 == 0 and step > 0:
 					print("Done with %d tweets for epoch %d"%(step*self.batch_size,epoch))
 					print(time.time()-start_time)
