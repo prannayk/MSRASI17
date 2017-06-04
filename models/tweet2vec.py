@@ -116,17 +116,6 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
-print("Loading Twitter corpus")
-tweetList = sentence_processor(tweetList)
-original_tweets = tweetList
-tweetList += sentence_processor([i for i in twitter_samples.strings()])
-print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
@@ -234,10 +223,11 @@ class tweet2vec():
 		self.total_batch_size = total_batch_size
 		self.num_entry = 0
 
+		self.word_embedding = tf.Variable(tf.random_uniform(shape=[self.vocabulary_size, self.word_embedding_size]))
+
 		self.grum_weights = tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_1")
 		self.gru1_weights = tf.Variable(tf.random_normal(stddev=1e2/math.sqrt(self.word_embedding_size*self.tweet_embedding_size),shape=[self.word_embedding_size,self.tweet_embedding_size]),name="gru_weights_2")
 
-		self.word_embedding = tf.Variable(tf.random_uniform(shape=[self.vocabulary_size, self.word_embedding_size]))
 
 		self.gru_fwd_input_weights = {
 			'r_t' : tf.Variable(tf.random_normal(stddev=1.0/math.sqrt(self.word_embedding_size),shape=[self.word_embedding_size,self.word_embedding_size]),name="gru_weights_3"),
@@ -364,7 +354,7 @@ class tweet2vec():
 			start_time = time.time()
 			for step in range(num_step):
 				self.average_reset()
-				self.train(generate_batch(step, batch_list)[:2])
+				self.train(generate_batch(step, batch_list)[:1])
 				if step % 10 == 0 and step > 0:
 					print("Done with %d tweets for epoch %d"%(step*self.batch_size,epoch))
 					print(time.time()-start_time)
