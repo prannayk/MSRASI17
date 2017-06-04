@@ -1,5 +1,3 @@
-		
-
 import tensorflow as tf
 import numpy as np
 import re
@@ -118,28 +116,29 @@ maxsize_upper_limit = 50
 
 print("Loaded from file")
 print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
-print("Loading Twitter corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
+#print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
-tweetList += sentence_processor([i for i in twitter_samples.strings()])
+#tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+##browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
+reutertokens = []
+browntokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -190,7 +189,7 @@ word_max_len = maxlen
 char_max_len = maxsize
 print("The said word_max_len %d and the said character max_len %d are constants"%(word_max_len, char_max_len))
 total_size = len(tweetList)
-batch_size = 100
+batch_size = 50
 char_size = len(char2cencoding)
 
 def convert2embedding(batch):
@@ -249,7 +248,7 @@ def convert2embedding_classifier(batch):
 
 def generate_batch_classifier(splice,batch_list,id_list):
 	batch = batch_list[splice*batch_size:splice*batch_size +  batch_size]
-	train_word,train_chars, train_labels = generate_batch(batch)
+	train_word,train_chars, train_labels = generate_batch(splice,batch_list)
 	count = 0
 	global word_max_len, word2count
 	train_labels = np.ndarray([batch_size,3])
@@ -265,7 +264,7 @@ def generate_batch_classifier(splice,batch_list,id_list):
 	return train_word,train_chars, train_labels, train_labels
 
 class cbow_char():
-	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled ):
+	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, tweet_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled, num_classes = 3):
 		self.learning_rate = learning_rate
 		self.num_entry = 1
 		self.dim1 = dim1
@@ -273,6 +272,7 @@ class cbow_char():
 		self.dim3 = dim3
 		self.char_embedding_size = char_embedding_size
 		self.word_embedding_size = word_embedding_size
+		self.tweet_embedding_size = tweet_embedding_size
 		self.char_max_len = char_max_len
 		self.word_max_len = word_max_len
 		self.vocabulary_size = vocabulary_size
@@ -282,6 +282,7 @@ class cbow_char():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		self.num_sampled = num_sampled
+		self.num_classes = num_classes
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0/math.sqrt(self.word_embedding_size)))
@@ -341,7 +342,7 @@ class cbow_char():
 	def gru_embedding(self,word_embedding):
 		with tf.device("/gpu:0"):
 			tweet_embedding = []
-			for batch in range(int(train_input.get_shape()[0])):
+			for batch in range(int(word_embedding.get_shape()[0])):
 				hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 				for t in range(self.word_max_len):
 					inputv = tf.reshape(word_embedding[batch,t],shape=[1,self.word_embedding_size])
@@ -398,14 +399,15 @@ class cbow_char():
 			self.loss = loss
 			self.similarity = similarity
 
-			self.tweet_embedding = self.gru_embedding(complete_embedding)
+			self.tweet_embedding = self.gru_embedding(embedding)
+			gru_weights = [i for i in filter(lambda x: x.name.startswith("gru"),tf.trainable_variables())]	
 			regularization = tf.nn.l2_loss(gru_weights[0])
 			for i in range(1,len(gru_weights)):
 				regularization += tf.nn.l2_loss(gru_weights[i])
 			self.loss_classifier = -tf.nn.softmax_cross_entropy_with_logits(labels=self.train_classes,logits=tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,3]) + tf.stack([self.bias_class]*self.batch_size)) + (0.3*regularization)
 			self.optimizer_classifier = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_classifier)
 
-			self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding_creator(self.complete_embedding),transpose_a=True),shape=[self.batch_size,self.num_classes]) + tf.stack([self.bias_class]*self.batch_size))
+			self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.batch_size),self.tweet_embedding,transpose_a=True),shape=[self.batch_size,self.num_classes]) + tf.stack([self.bias_class]*self.batch_size))
 			self.batch_prob = self.batch_prob_row[:,0]
 
 			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
@@ -539,29 +541,28 @@ class cbow_char():
 		with open("./tweet2vec_log/last_run_%d.txt"%(self.num_entry),mode="w") as fil:
 			fil.write(filedata.encode('utf-8','ignore'))	
 
-	def train_on_batch_classifier(self,num_epoch, batch_list):
+	def train_on_batch_classifier(self,num_epoch, batch_list,reverseList):
 		num_step = len(batch_list) // self.batch_size
-		validate = generate_batch_classifier(np.random.randint(1,20),batch_list)[:1]
-		validate_id = generate_batch_classifier(np.random.randint(1,20),batch_list)[1]
+		validate = generate_batch_classifier(np.random.randint(1,20),batch_list,reverseList)
 		for epoch in range(num_epoch):
 			self.reset()
 			start_time = time.time()
 			for step in range(num_step):
 				self.average_reset()
-				self.train(generate_batch_classifier(step, batch_list)[:1])
+				self.train(generate_batch_classifier(step, batch_list,reverseList)[:1])
 				if step % 10 == 0 and step > 0:
 					print("Done with %d tweets for epoch %d"%(step*self.batch_size,epoch))
 					print(time.time()-start_time)
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
-					self.validate_classifier(validate,validate_id)
+					self.validate_classifier(validate,reverseList)
 			self.save()
 
 	def rank_on_batch_classifier(self, batch_list,case):
 		print("Getting results")
 		query_similarity = []
 		ident = case + str(np.random.randint(100))
-		for l in range(math.ceil(len(batch_list) / 100)):
+		for l in range(math.ceil(len(batch_list) / self.batch_size)):
 			batch = convert2embedding_classifier(batch_list[l*100:l*100 + 100])
 			feed_dict = {
 				self.train_words : batch[0],
@@ -583,6 +584,7 @@ embeddingEncoder = cbow_char(
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
 		word_embedding_size = 128,
+		tweet_embedding_size = 128,
 		char_max_len = char_max_len,
 		word_max_len = word_max_len,
 		batch_size = batch_size,
@@ -601,6 +603,8 @@ session = embeddingEncoder.session()
 print("Running init")
 embeddingEncoder.initialize()
 print("Variables Initialized")
+embeddingEncoder.train_on_batch_classifier(5, original_tweets,reverseListing.values())
+embeddingEncoder.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
 print("Running for brown and reuters")
 print("Running for Brown")
 embeddingEncoder.train_on_batch(5,brownsentences)
