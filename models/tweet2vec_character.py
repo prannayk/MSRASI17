@@ -108,6 +108,18 @@ for line in text:
 	tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
 	reverseListing[count] = tweet['id']
 	count += 1
+avail_tweet = []
+need_tweet = []
+with open("../dataset/nepal_avail.txt") as f:
+	lines = f.readlines()
+	for line in lines:
+		tweet = line.split("\t")[0]
+		avail_tweet.append(tweet)
+with open("../dataset/nepal_need.txt") as f:
+	lines = f.readlines()
+	for line in lines:
+		tweet = line.split("\t")[0]
+		avail_tweet.append(tweet)
 print("Loaded tweets")
 
 maxlen = 0
