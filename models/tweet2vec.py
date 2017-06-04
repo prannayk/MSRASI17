@@ -116,31 +116,29 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-#print("Loading Brown corpus")
-#brownsentences = sentence_processor([i for i in brown.sents()])
-#len_brown_sents = len(brownsentences)
-#print("Loading Reuters corpus")
-#reutersentences = sentence_processor([i for i in reuters.sents()])
-#len_reuters_sents = len(reutersentences)
-#print("Loading Twitter corpus")
+print("Loading Brown corpus")
+brownsentences = sentence_processor([i for i in brown.sents()])
+len_brown_sents = len(brownsentences)
+print("Loading Reuters corpus")
+reutersentences = sentence_processor([i for i in reuters.sents()])
+len_reuters_sents = len(reutersentences)
+print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = tweetList
-#tweetList += sentence_processor([i for i in twitter_samples.strings()])
+tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-#browntokens = token_processor(brownsentences)
-#reutertokens = token_processor(reutersentences)
-reutertokens = []
-browntokens = []
+browntokens = token_processor(brownsentences)
+reutertokens = token_processor(reutersentences)
 print("Merging: ")
 
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -208,11 +206,11 @@ def convert2embedding(batch):
 
 def generate_batch(splice,batch_list,id_list):
 	batch = batch_list[splice*batch_size:splice*batch_size +  batch_size]
-	id_list_batch = id_list[splice*batch_size:splice*batch_size + batch_size]
 	train_word = convert2embedding(batch)
 	count = 0
 	global word_max_len, word2count
 	train_labels = np.ndarray([batch_size,3])
+	id_list_batch = id_list[splice*batch_size:splice*batch_size + batch_size]
 	for tweet in batch:
 		if id_list[count] in  avail_tweet:
 			train_labels[count] = [0,1,0]
@@ -221,7 +219,7 @@ def generate_batch(splice,batch_list,id_list):
 		else:
 			train_labels[count] = [0,0,1]
 		count += 1	
-	return train_word, train_chars, train_labels
+	return train_word, train_labels
 
 class tweet2vec():
 	def __init__(self,batch_size, vocabulary_size, word_max_len,total_batch_size=50,word_embedding_size=128, tweet_embedding_size=256, num_classes=3, learning_rate=5e-1,name='tweet2vec.py'):
@@ -286,8 +284,6 @@ class tweet2vec():
 				zt = tf.nn.sigmoid(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_fwd_input_weights['z_t']) + tf.matmul(hidden, self.gru_fwd_hidden_weights['z_t']) + self.gru_fwd_bias['z_t'],dim=[0,1]))
 				hid = tf.nn.tanh(tf.nn.l2_normalize(tf.matmul(inputv,self.gru_fwd_input_weights['h_t']) + tf.matmul(hidden*rt,self.gru_fwd_hidden_weights['h_t']) + self.gru_fwd_bias['h_t'],dim=[0,1]))
 				hidden = (1 - zt)*hidden + zt*hid
-				print(hidden.get_shape())
-				print(rt.get_shape())
 			hidden = tf.random_normal(shape=[1,self.word_embedding_size])
 			for t in range(word_max_len):
 				inputv = tf.reshape(word_embedding[batch,word_max_len - t - 1],shape=[1,self.word_embedding_size])
@@ -312,16 +308,16 @@ class tweet2vec():
 		self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 		self.batch_input = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len])
-		self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.total_batch_size),self.tweet_embedding_creator(self.batch_input)) + self.bias_class,shape=[self.batch_size,3]))
+		self.batch_prob_row = tf.nn.softmax(tf.reshape(tf.matmul(tf.stack([self.tweet_class]*self.total_batch_size),self.tweet_embedding_creator(self.batch_input),transpose_a=True),shape=[self.total_batch_size,self.num_classes]) + tf.stack([self.bias_class]*self.total_batch_size))
 		self.batch_prob = self.batch_prob_row[:,0]
 
 		self.saver = tf.train.Saver()
 		self.init = tf.global_variables_initializer()
 
 	def initialize(self):
-		self.session = tf.train.InteractiveSession()
+		self.session = tf.InteractiveSession()
 		self.init.run()
-		return session
+		return self.session
 	def save(self):
 		self.saver(self.session,self.name)
 		print("Saved at url: %s"%(self.name))
@@ -361,8 +357,8 @@ class tweet2vec():
 
 	def train_on_batch(self,num_epoch, batch_list):
 		num_step = len(batch_list) // self.batch_size
-		validate = generate_batch(np.random.randint(1,20),batch_list)[:2]
-		validate_id = generate_batch(np.random.randint(1,20),batch_list)[2]
+		validate = generate_batch(np.random.randint(1,20),batch_list)[:1]
+		validate_id = generate_batch(np.random.randint(1,20),batch_list)[1]
 		for epoch in range(num_epoch):
 			self.reset()
 			start_time = time.time()
@@ -379,33 +375,40 @@ class tweet2vec():
 
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
+		query_similarity = []
 		ident = case + str(np.random.randint(100))
-		batch = convert2embedding(batch_list)
-		feed_dict = {
-			self.batch_input : batch[0],
-		}
-		query_similarity = self.session(self.batch_prob,feed_dict=feed_dict)
+		for l in range(math.ceil(len(batch_list) / 100)):
+			batch = convert2embedding(batch_list[l*100:l*100 + 100])
+			feed_dict = {
+				self.batch_input : batch[0],
+			}
+			query_similarity += self.session(self.batch_prob,feed_dict=feed_dict)
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),lambda x: x[1])]
 		text_lines = []
 		count = 0
 		for t in sorted_queries:
 			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseTweetList[t[0]],count,t[1],ident))
 			count += 1
+		with open("./tweet2vec.result.txt",mode="w") as f:
+			f.write('\n'.join(text_lines))
 
 batch_size = 10
 vocabulary_size = 100
 word_max_len = 30
-tweetvec = tweet2vec(batch_size,vocabulary_size,word_max_len)
+print(math.ceil(len(original_tweets)/100))
+
+tweetvec = tweet2vec(batch_size,vocabulary_size,word_max_len,100)
+
 print("Building model")
 tweetvec.build_model()
 print("Rolling session and init")
 tweetvec.initialize()
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
+tweetvec.train_on_batch(5,brownsentences)
+tweetvec.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for reuters")
-embeddingEncoder.train_on_batch(5, reutersentences)
+tweetvec.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(10, tweetList)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
+tweetvec.train_on_batch(10, tweetList)
+tweetvec.rank_on_batch(original_tweets, np.random.randint(1e6))
