@@ -335,8 +335,8 @@ class char_cbow():
 			self.loss = loss
 			self.similarity = similarity
 
-			self.ir_words = tf.placeholder(tf.int32,shape=[self.total_batch_size, self.word_max_len])
-			self.ir_chars = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len, self.char_max_len])
+			self.ir_words = tf.placeholder(tf.int32,shape=[self.batch_size, self.word_max_len])
+			self.ir_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
@@ -427,14 +427,16 @@ class char_cbow():
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
 		ident = str(case) + str(np.random.randint(100))
-		batch = convert2embedding(batch_list)
-		feed_dict = {
-			self.ir_words : batch[0],
-			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[1],
-			self.query_lit[1] : self.query_list[0]
-		}
-		query_similarity = self.session.run(self.query_similarity,feed_dict=feed_dict)
+		query_similarity = []
+		for i in range(int(math.ceil(len(batch_size) / self.batch_size))):
+			batch = convert2embedding(batch_list[i*self.batch_size : i*self.batch_size + batch_size])
+			feed_dict = {
+				self.ir_words : batch[0],
+				self.ir_chars : batch[1],
+				self.query_lit[0] : self.query_list[1],
+				self.query_lit[1] : self.query_list[0]
+			}
+			query_similarity += self.session.run(self.query_similarity,feed_dict=feed_dict)
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
