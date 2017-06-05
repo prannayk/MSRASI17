@@ -241,7 +241,7 @@ def generate_batch(splice,batch_list):
 		count += 1	
 	return train_word, train_chars
 
-class attention_char():
+class char_cbow():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars ):
 		self.learning_rate = learning_rate
 		self.dim1 = dim1
@@ -446,7 +446,7 @@ class attention_char():
 
 
 print("Entering Embedding maker")
-embeddingEncoder = cbow_char(
+character_cbow = char_cbow(
 		learning_rate = 5e-1,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
@@ -461,19 +461,19 @@ embeddingEncoder = cbow_char(
 		valid_chars = None
 	)
 
-embeddingEncoder.create_query(5,query_tokens,len(original_tweets))
+character_cbow.create_query(5,query_tokens,len(original_tweets))
 print("Building model")
-_ = embeddingEncoder.build_model()
+_ = character_cbow.build_model()
 print("Setting up session")
-session = embeddingEncoder.session()
+session = character_cbow.session()
 print("Running init")
-embeddingEncoder.initialize()
+character_cbow.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
+character_cbow.train_on_batch(5,brownsentences)
 print("Running for reuters")
-embeddingEncoder.train_on_batch(5, reutersentences)
+character_cbow.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(10, tweetList)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
+character_cbow.train_on_batch(10, tweetList)
+character_cbow.rank_on_batch(original_tweets, np.random.randint(1e6))
