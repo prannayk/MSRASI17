@@ -550,8 +550,8 @@ class cbow_char():
 	def rank_on_batch_classifier(self, batch_list,case):
 		print("Getting results")
 		query_similarity = []
-		ident = case + str(np.random.randint(100))
-		for l in range(math.ceil(len(batch_list) / self.batch_size)):
+		ident = str(case) + str(np.random.randint(100))
+		for l in range(int(math.ceil(len(batch_list) / self.batch_size))):
 			batch = convert2embedding_classifier(batch_list[l*100:l*100 + 100])
 			feed_dict = {
 				self.train_words : batch[0],
@@ -599,5 +599,5 @@ print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
 embeddingEncoder.train_on_batch(5, tweetList)
-embeddingEncoder.train_on_batch_classifier(5, original_tweets, reverseList.values())
+embeddingEncoder.train_on_batch_classifier(5, original_tweets, reverseListing.values())
 embeddingEncoder.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
