@@ -450,7 +450,7 @@ class attention_char():
 
 
 print("Entering Embedding maker")
-embeddingEncoder = cbow_char(
+attention_model = attention_char(
 		learning_rate = 5e-1,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
@@ -465,19 +465,19 @@ embeddingEncoder = cbow_char(
 		valid_chars = None
 	)
 
-embeddingEncoder.create_query(5,query_tokens,len(original_tweets))
+attention_model.create_query(5,query_tokens,len(original_tweets))
 print("Building model")
-_ = embeddingEncoder.build_model()
+_ = attention_model.build_model()
 print("Setting up session")
-session = embeddingEncoder.session()
+session = attention_model.session()
 print("Running init")
-embeddingEncoder.initialize()
+attention_model.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
+attention_model.train_on_batch(5,brownsentences)
 print("Running for reuters")
-embeddingEncoder.train_on_batch(5, reutersentences)
+attention_model.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(10, tweetList)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
+attention_model.train_on_batch(10, tweetList)
+attention_model.rank_on_batch(original_tweets, np.random.randint(1e6))
