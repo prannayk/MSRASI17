@@ -273,7 +273,7 @@ def generate_batch_classifier(splice,batch_list,id_list):
 		count += 1	
 	return train_word,train_chars, train_labels, train_classes
 
-class cbow_char():
+class tweet_vector():
 	def __init__(self,learning_rate, dim1, dim2, dim3,char_embedding_size,word_embedding_size, tweet_embedding_size, char_max_len, word_max_len, vocabulary_size, char_size, batch_size,beta, valid_words, valid_chars, num_sampled, num_classes = 3):
 		self.learning_rate = learning_rate
 		self.num_entry = 1
@@ -568,7 +568,7 @@ class cbow_char():
 			f.write('\n'.join(text_lines))
 
 print("Entering Embedding maker")
-embeddingEncoder = cbow_char(
+tweet_classifier = tweet_vector(
 		learning_rate = 5e-1,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
@@ -586,18 +586,18 @@ embeddingEncoder = cbow_char(
 	)
 
 print("Building model")
-_ = embeddingEncoder.build_model()
+_ = tweet_classifier.build_model()
 print("Setting up session")
-session = embeddingEncoder.session()
+session = tweet_classifier.session()
 print("Running init")
-embeddingEncoder.initialize()
+tweet_classifier.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
+tweet_classifier.train_on_batch(5,brownsentences)
 print("Running for reuters")
-embeddingEncoder.train_on_batch(5, reutersentences)
+tweet_classifier.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(5, tweetList)
-embeddingEncoder.train_on_batch_classifier(5, original_tweets, reverseList.values())
-embeddingEncoder.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
+tweet_classifier.train_on_batch(5, tweetList)
+tweet_classifier.train_on_batch_classifier(5, original_tweets, reverseList.values())
+tweet_classifier.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))
