@@ -23,7 +23,7 @@ query_words = ['need','resources','require','requirement','want']
 query_tokens = map(lambda x: st.stem(x).lower(),query_words)
 
 skip_window = 2 # >= 1
-
+character_window = 3
 def batch_normalize(X, eps=1e-8):
 	if X.get_shape().ndims == 4:	
 		X = tf.nn.l2_normalize(X, [0,1,2], epsilon=eps)
@@ -115,29 +115,30 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
-print("Loading Twitter corpus")
+#print("Loading Brown corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
+#print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
-tweetList += sentence_processor([i for i in twitter_samples.strings()])
-print("Loaded everything")
+#tweetList += sentence_processor([i for i in twitter_samples.strings()])
+#print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+#browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
+browntokens = []
+reutertokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -257,6 +258,7 @@ class char_cbow():
 		self.beta = beta
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
+		self.num_index = 0
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
@@ -364,7 +366,7 @@ class char_cbow():
 			self.train_words : batch[0],
 			self.train_chars : batch[1]
 		}
-		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
+		_,loss_val = self.session.run([self.optimizer, self.loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
 		if self.index % 10 == 0 and self.index > 0:
 			print("Average loss is: %s"%(self.average_loss/10))
@@ -381,7 +383,7 @@ class char_cbow():
 			self.v_chars : batch[1]
 		}
 		file_text = []
-		word_list = session.run(similarity, feed_dict=feed_dict)
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
@@ -473,9 +475,9 @@ character_cbow.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-character_cbow.train_on_batch(5,brownsentences)
+#character_cbow.train_on_batch(5,brownsentences)
 print("Running for reuters")
-character_cbow.train_on_batch(5, reutersentences)
+#character_cbow.train_on_batch(5, reutersentences)
 print("Running for tweets")
 character_cbow.train_on_batch(10, tweetList)
 character_cbow.rank_on_batch(original_tweets, np.random.randint(1e6))

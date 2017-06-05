@@ -115,29 +115,30 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
-print("Loading Twitter corpus")
+#print("Loading Brown corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
+#print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
-tweetList += sentence_processor([i for i in twitter_samples.strings()])
+#tweetList += sentence_processor([i for i in twitter_samples.strings()])
 print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+#browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
+browntokens = []
+reutertokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -257,25 +258,27 @@ class attention_char():
 		self.beta = beta
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
+		self.num_index = 0
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
-			weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
-			weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
-			weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
-			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
-			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
-			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
-			self.ir_weight = {
-				'weight1' : tf.stack([weight1]*self.num_queries),
-				'weight2' : tf.stack([weight2]*self.num_queries),
-				'weight3' : tf.stack([weight3]*self.num_queries)
-			}
+			self.weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
+			self.weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
+			self.weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
+
 
 	def embedding_creator(self,train_chars, train_words,flag=False):
 		with tf.device("/cpu:0"):
+			self.weights1 = tf.stack([[self.weight1]*word_max_len]*batch_size)
+			self.weights2 = tf.stack([[self.weight2]*word_max_len]*batch_size)
+			self.weights3 = tf.stack([[self.weight3]*word_max_len]*batch_size)
+			self.ir_weight = {
+				'weight1' : tf.stack([[self.weight1]*self.word_max_len]*self.num_queries),
+				'weight2' : tf.stack([[self.weight2]*self.word_max_len]*self.num_queries),
+				'weight3' : tf.stack([[self.weight3]*self.word_max_len]*self.num_queries)
+			}
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 			if not flag:
@@ -396,7 +399,7 @@ class attention_char():
 			self.v_chars : batch[1]
 		}
 		file_text = []
-		word_list = session.run(similarity, feed_dict=feed_dict)
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
@@ -488,9 +491,9 @@ attention_model.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-attention_model.train_on_batch(5,brownsentences)
+#attention_model.train_on_batch(5,brownsentences)
 print("Running for reuters")
-attention_model.train_on_batch(5, reutersentences)
+#attention_model.train_on_batch(5, reutersentences)
 print("Running for tweets")
 attention_model.train_on_batch(10, tweetList)
 attention_model.rank_on_batch(original_tweets, np.random.randint(1e6))
