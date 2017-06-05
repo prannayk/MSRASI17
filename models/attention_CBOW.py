@@ -431,21 +431,23 @@ class attention_char():
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
 		ident = str(case) + str(np.random.randint(100))
-		batch = convert2embedding(batch_list)
-		feed_dict = {
-			self.ir_words : batch[0],
-			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[1],
-			self.query_lit[1] : self.query_list[0]
-		}
-		query_similarity = self.session.run(self.query_similarity,feed_dict=feed_dict)
+		query_similarity = []
+		for i in range(int(math.ceil(len(batch_size) / self.batch_size))):
+			batch = convert2embedding(batch_list[i*self.batch_size : i*self.batch_size + batch_size])
+			feed_dict = {
+				self.ir_words : batch[0],
+				self.ir_chars : batch[1],
+				self.query_lit[0] : self.query_list[1],
+				self.query_lit[1] : self.query_list[0]
+			}
+			query_similarity += self.session.run(self.query_similarity,feed_dict=feed_dict)
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
 		for t in sorted_queries:
 			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
 			count += 1
-		with open('./attention.result.text',mode="w") as f:
+		with open('./char_cbow.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
 
 
