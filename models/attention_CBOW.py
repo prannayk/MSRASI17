@@ -268,17 +268,28 @@ class attention_char():
 			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
 			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
 			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+			self.ir_weight = {
+				'weight1' : tf.stack([weight1]*self.num_queries),
+				'weight2' : tf.stack([weight2]*self.num_queries),
+				'weight3' : tf.stack([weight3]*self.num_queries)
+			}
 
-	def embedding_creator(self,train_chars, train_words):
+	def embedding_creator(self,train_chars, train_words,flag=False):
 		with tf.device("/cpu:0"):
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
-
-			attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
-			attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
-			attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
-			hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
-			character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
+			if not flag:
+				attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.weights1)))
+				attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.weights2)))
+				attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.weights3)))
+				hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
+				character_embedding = tf.reshape(hidden_layer,shape=[self.batch_size, self.word_max_len, self.char_embedding_size])
+			else:
+				attention1 = tf.sigmoid(batch_normalize(tf.matmul(chars,self.ir_weight['weight1'])))
+				attention2 = tf.sigmoid(batch_normalize(tf.matmul(attention1,self.ir_weight['weight2'])))
+				attention3 = tf.sigmoid(batch_normalize(tf.matmul(attention2,self.ir_weight['weight3'])))
+				hidden_layer = tf.matmul(attention3, chars, transpose_a = True)
+				character_embedding = tf.reshape(hidden_layer,shape=[self.num_queries, self.word_max_len, self.char_embedding_size])
 			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
 			# known = complete embedding
 			contextvector_list = list()
@@ -346,7 +357,7 @@ class attention_char():
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
-			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1]),axis=1)
+			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1],flag=True),axis=1)
 			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
 
 			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
@@ -368,7 +379,7 @@ class attention_char():
 			self.train_words : batch[0],
 			self.train_chars : batch[1]
 		}
-		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
+		_,loss_val = self.session.run([self.optimizer, self.loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
 		if self.index % 10 == 0 and self.index > 0:
 			print("Average loss is: %s"%(self.average_loss/10))

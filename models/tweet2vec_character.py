@@ -557,7 +557,7 @@ class tweet_vector():
 				self.train_words : batch[0],
 				self.train_chars : batch[1]
 			}
-			query_similarity += self.session(self.batch_prob,feed_dict=feed_dict)
+			query_similarity += self.session.run(self.batch_prob,feed_dict=feed_dict)
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),lambda x: x[1])]
 		text_lines = []
 		count = 0
