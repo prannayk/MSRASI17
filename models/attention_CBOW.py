@@ -23,7 +23,7 @@ query_words = ['need','resources','require','requirement','want']
 query_tokens = map(lambda x: st.stem(x).lower(),query_words)
 
 skip_window = 2 # >= 1
-
+character_window = 2
 def batch_normalize(X, eps=1e-8):
 	if X.get_shape().ndims == 4:	
 		X = tf.nn.l2_normalize(X, [0,1,2], epsilon=eps)
@@ -339,8 +339,8 @@ class attention_char():
 			self.loss = loss
 			self.similarity = similarity
 
-			self.ir_words = tf.placeholder(tf.int32,shape=[self.total_batch_size, self.word_max_len])
-			self.ir_chars = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len, self.char_max_len])
+			self.ir_words = tf.placeholder(tf.int32,shape=[self.batch_size, self.word_max_len])
+			self.ir_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
