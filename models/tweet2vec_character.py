@@ -562,7 +562,7 @@ class tweet_vector():
 		text_lines = []
 		count = 0
 		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseTweetList[t[0]],count,t[1],ident))
+			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
 			count += 1
 		with open("./tweet2vec.result.txt",mode="w") as f:
 			f.write('\n'.join(text_lines))
@@ -599,5 +599,5 @@ print("Running for reuters")
 tweet_classifier.train_on_batch(5, reutersentences)
 print("Running for tweets")
 tweet_classifier.train_on_batch(5, tweetList)
-tweet_classifier.train_on_batch_classifier(5, original_tweets, reverseList.values())
+tweet_classifier.train_on_batch_classifier(5, original_tweets, reverseListing.values())
 tweet_classifier.rank_on_batch_classifier(original_tweets, np.random.randint(1e6))

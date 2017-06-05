@@ -259,6 +259,7 @@ class attention_char():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		self.num_index = 0
+		self.num_entry = 0 
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
@@ -461,7 +462,7 @@ class attention_char():
 		for t in sorted_queries:
 			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
 			count += 1
-		with open('./char_cbow.result.text',mode="w") as f:
+		with open('./attention.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
 
 

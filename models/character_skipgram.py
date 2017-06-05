@@ -327,8 +327,8 @@ class cbow_char():
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
-			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1]),axis=1)
-			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
+			query_vectors = tf.reduce_mean(tf.nn.l2_normalize(self.embedding_creator(self.query_lit[0],self.query_lit[1]),axis=1),axis=[0,1])
+			self.query_similarity = tf.reduce_mean(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
 
 			return optimizer, loss, train_words, train_chars, train_labels, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 

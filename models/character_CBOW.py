@@ -259,6 +259,7 @@ class char_cbow():
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
 		self.num_index = 0
+		self.num_entry = 0
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
@@ -430,7 +431,7 @@ class char_cbow():
 		print("Getting results")
 		ident = str(case) + str(np.random.randint(100))
 		query_similarity = []
-		for i in range(int(math.ceil(len(batch_size) / self.batch_size))):
+		for i in range(int(math.ceil(len(batch_list) / self.batch_size))):
 			batch = convert2embedding(batch_list[i*self.batch_size : i*self.batch_size + batch_size])
 			feed_dict = {
 				self.ir_words : batch[0],
