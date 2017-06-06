@@ -394,7 +394,6 @@ class cbow_char():
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
 					self.validate(validate)
-			self.save()
 
 	def create_query(self,num_queries,query_tokens,num_total):
 		print("Petrol")
@@ -425,10 +424,11 @@ class cbow_char():
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
+		print(sorted_queries == list(set(sorted_queries)))
 		for t in sorted_queries:
 			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
 			count += 1
-		with open('./skipgram.result.text',mode="w") as f:
+		with open('./skipgram_2.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
 
 print("Entering Embedding maker")
