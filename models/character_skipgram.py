@@ -105,9 +105,10 @@ reverseListing = dict()
 count = 0
 for line in text:
 	tweet = json.loads(line)
-	tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
-	reverseListing[count] = tweet['id']
-	count += 1
+	if not tweet['id'] in reverseListing.values():
+		tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
+		reverseListing[count] = tweet['id']
+		count += 1
 print("Loaded tweets")
 
 maxlen = 0

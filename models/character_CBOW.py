@@ -105,9 +105,10 @@ reverseListing = dict()
 count = 0
 for line in text:
 	tweet = json.loads(line)
-	tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
-	reverseListing[count] = tweet['id']
-	count += 1
+	if not tweet['id'] in reverseListing.values():
+		tweetList.append(tknzr.tokenize(filter(lambda x: x in printable,tweet['text']).decode('utf-8','ignore')))
+		reverseListing[count] = tweet['id']
+		count += 1
 print("Loaded tweets")
 
 maxlen = 0
@@ -442,7 +443,6 @@ class char_cbow():
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
-		sorted_queries = list(set(sorted_queries))
 		for t in sorted_queries:
 			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
 			count += 1
