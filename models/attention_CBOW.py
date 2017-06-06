@@ -132,7 +132,6 @@ print("Done with tweetList")
 browntokens = token_processor(brownsentences)
 reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
@@ -257,25 +256,28 @@ class attention_char():
 		self.beta = beta
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
+		self.num_index = 0
+		self.num_entry = 0 
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
 			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0))
 			# attention matrix
-			weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
-			weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
-			weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
-			self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
-			self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
-			self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
-			self.ir_weight = {
-				'weight1' : tf.stack([weight1]*self.num_queries),
-				'weight2' : tf.stack([weight2]*self.num_queries),
-				'weight3' : tf.stack([weight3]*self.num_queries)
-			}
+			self.weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
+			self.weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
+			self.weight3 = tf.Variable(tf.random_normal(shape=[self.dim2,self.dim3]))
+
 
 	def embedding_creator(self,train_chars, train_words,flag=False):
 		with tf.device("/cpu:0"):
+			self.weights1 = tf.stack([[self.weight1]*word_max_len]*batch_size)
+			self.weights2 = tf.stack([[self.weight2]*word_max_len]*batch_size)
+			self.weights3 = tf.stack([[self.weight3]*word_max_len]*batch_size)
+			self.ir_weight = {
+				'weight1' : tf.stack([[self.weight1]*self.word_max_len]*self.num_queries),
+				'weight2' : tf.stack([[self.weight2]*self.word_max_len]*self.num_queries),
+				'weight3' : tf.stack([[self.weight3]*self.word_max_len]*self.num_queries)
+			}
 			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
 			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 			if not flag:
@@ -354,10 +356,10 @@ class attention_char():
 			self.ir_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
-			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
+			valid_ir = tf.reduce_mean(ir_embedding[1],axis=1)
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
-			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1],flag=True),axis=1)
+			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1],flag=True)[1],axis=1)
 			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
 
 			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
@@ -396,7 +398,7 @@ class attention_char():
 			self.v_chars : batch[1]
 		}
 		file_text = []
-		word_list = session.run(similarity, feed_dict=feed_dict)
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
@@ -443,7 +445,7 @@ class attention_char():
 		print("Getting results")
 		ident = str(case) + str(np.random.randint(100))
 		query_similarity = []
-		for i in range(int(math.ceil(len(batch_size) / self.batch_size))):
+		for i in range(int(math.ceil(len(batch_list) / self.batch_size))):
 			batch = convert2embedding(batch_list[i*self.batch_size : i*self.batch_size + batch_size])
 			feed_dict = {
 				self.ir_words : batch[0],
@@ -455,10 +457,11 @@ class attention_char():
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
+		sorted_queries = list(set(sorted_queries))
 		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
+			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
 			count += 1
-		with open('./char_cbow.result.text',mode="w") as f:
+		with open('./attention.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
 
 

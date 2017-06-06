@@ -23,7 +23,7 @@ query_words = ['need','resources','require','requirement','want']
 query_tokens = map(lambda x: st.stem(x).lower(),query_words)
 
 skip_window = 2 # >= 1
-
+character_window = 3
 def batch_normalize(X, eps=1e-8):
 	if X.get_shape().ndims == 4:	
 		X = tf.nn.l2_normalize(X, [0,1,2], epsilon=eps)
@@ -132,7 +132,6 @@ print("Done with tweetList")
 browntokens = token_processor(brownsentences)
 reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
@@ -224,7 +223,7 @@ def generate_batch(splice,batch_list):
 	batch = batch_list[splice*batch_size:splice*batch_size +  batch_size]
 	train_word, train_chars = convert2embedding(batch)
 	count = 0
-	global word_max_len, word2count
+	global word_max_len, word3count
 	train_labels = np.ndarray([batch_size, word_max_len, 1])
 	for tweet in batch:
 		for t in range(word_max_len):
@@ -257,6 +256,8 @@ class char_cbow():
 		self.beta = beta
 		self.valid_words = valid_words
 		self.valid_chars = valid_chars
+		self.num_index = 0
+		self.num_entry = 0
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0))
@@ -339,11 +340,12 @@ class char_cbow():
 			self.ir_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
-			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
+			valid_ir = tf.reduce_mean(ir_embedding[1],axis=1)
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
-			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1]),axis=1)
-			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
+			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1])[1],axis=1)
+			self.query_similarity = tf.matmul(query_vectors,valid_ir,transpose_b=True)
+			self.query_similarity = tf.reduce_mean(self.query_similarity,axis=0)
 
 			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
@@ -364,7 +366,7 @@ class char_cbow():
 			self.train_words : batch[0],
 			self.train_chars : batch[1]
 		}
-		_,loss_val = self.session.run([optimizer, loss], feed_dict=feed_dict)
+		_,loss_val = self.session.run([self.optimizer, self.loss], feed_dict=feed_dict)
 		self.average_loss += loss_val
 		if self.index % 10 == 0 and self.index > 0:
 			print("Average loss is: %s"%(self.average_loss/10))
@@ -381,7 +383,7 @@ class char_cbow():
 			self.v_chars : batch[1]
 		}
 		file_text = []
-		word_list = session.run(similarity, feed_dict=feed_dict)
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
 		for t in range(len(word_list)):
 			for l in range(min(len(word_list[t]),5)):
 				petrol = -word_list[t][l]
@@ -428,7 +430,7 @@ class char_cbow():
 		print("Getting results")
 		ident = str(case) + str(np.random.randint(100))
 		query_similarity = []
-		for i in range(int(math.ceil(len(batch_size) / self.batch_size))):
+		for i in range(int(math.ceil(len(batch_list) / self.batch_size))):
 			batch = convert2embedding(batch_list[i*self.batch_size : i*self.batch_size + batch_size])
 			feed_dict = {
 				self.ir_words : batch[0],
@@ -436,12 +438,13 @@ class char_cbow():
 				self.query_lit[0] : self.query_list[1],
 				self.query_lit[1] : self.query_list[0]
 			}
-			query_similarity += self.session.run(self.query_similarity,feed_dict=feed_dict)
+			query_similarity += list(self.session.run(self.query_similarity,feed_dict=feed_dict))
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
+		sorted_queries = list(set(sorted_queries))
 		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
+			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
 			count += 1
 		with open('./char_cbow.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
@@ -471,6 +474,7 @@ session = character_cbow.session()
 print("Running init")
 character_cbow.initialize()
 print("Variables Initialized")
+character_cbow.rank_on_batch(original_tweets, np.random.randint(1e6))
 print("Running for brown and reuters")
 print("Running for Brown")
 character_cbow.train_on_batch(5,brownsentences)
