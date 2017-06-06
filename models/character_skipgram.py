@@ -21,7 +21,8 @@ printable = set(string.printable)
 
 query_words = ['need','resources','require','requirement','want']
 query_tokens = map(lambda x: st.stem(x).lower(),query_words)
-
+avail_words = ['available','distribute','given','giving','sending']
+avail_tokens = map(lambda x: st.stem(x).lower(),avail_words)
 skip_window = 2 # >= 1
 
 def batch_normalize(X, eps=1e-8):
@@ -134,7 +135,7 @@ browntokens = token_processor(brownsentences)
 reutertokens = token_processor(reutersentences)
 print("Merging: ")
 
-tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
+tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens + avail_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
 brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
@@ -413,7 +414,7 @@ class cbow_char():
 
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
-		ident = str(case) + str(np.random.randint(100))
+		ident = case + str(np.random.randint(100))
 		batch = convert2embedding(batch_list)
 		feed_dict = {
 			self.ir_words : batch[0],
@@ -426,10 +427,28 @@ class cbow_char():
 		text_lines = []
 		count = 0
 		for t in sorted_queries:
-			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
+			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
 			count += 1
 		with open('./skipgram.result.text',mode="w") as f:
 			f.write('\n'.join(text_lines))
+
+	def expand_query(self, query_tokens):
+		batch = convert2embedding([query_tokens])
+		feed_dict = {
+			self.validwords : batch[0],
+			self.v_chars : batch[1]
+		}
+		file_text = []
+		word_list = session.run(self.similarity, feed_dict=feed_dict)
+		for t in range(len(word_list)):
+			for l in range(min(len(word_list[t]),5)):
+				petrol = -word_list[t][l]
+				tokens = petrol[0].argsort()[len(query_tokens):5+len(query_tokens)]
+		for t in tokens:
+			query_tokens.append(count2word[t])
+		return query_tokens
+
+
 
 print("Entering Embedding maker")
 embeddingEncoder = cbow_char(
@@ -463,4 +482,12 @@ print("Running for reuters")
 embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
 embeddingEncoder.train_on_batch(10, tweetList)
-embeddingEncoder.rank_on_batch(original_tweets, np.random.randint(1e6))
+embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Need')
+embeddingEncoder.create_query(5,avail_tokens,len(original_tweets))
+embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Avail')
+query_tokens = embeddingEncoder.expand_query(query_tokens)
+avail_tokens = embeddingEncoder.expand_query(avail_tokens)
+embeddingEncoder.create_query(5,query_tokens,len(original_tweets))
+embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Need')
+embeddingEncoder.create_query(5,avail_tokens,len(original_tweets))
+embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Avail')
