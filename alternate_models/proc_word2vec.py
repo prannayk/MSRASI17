@@ -51,7 +51,7 @@ char_dictionary = dict()
 for char in chars:
   char_dictionary[char] = len(char_dictionary)
 
-char_reverse_dictionary = dict(zip(char_dictionary.values(),char_dictionary.keys()))
+reverse_char_dictionary = dict(zip(char_dictionary.values(),char_dictionary.keys()))
 char_data = []
 for char in character_data:
   char_data.append(char_dictionary[char])
@@ -100,8 +100,8 @@ def generate_batch_char(batch_size, num_skips, skip_window):
   span = 2 * skip_window + 1  # [ skip_window target skip_window ]
   buffer = collections.deque(maxlen=span)
   for _ in range(span):
-    buffer.append(char_data[data_index])
-    data_index = (data_index + 1) % len(char_data)
+    buffer.append(char_data[char_data_index])
+    char_data_index = (char_data_index + 1) % len(char_data)
   for i in range(batch_size // num_skips):
     target = skip_window  # target label at the center of the buffer
     targets_to_avoid = [skip_window]
@@ -111,10 +111,10 @@ def generate_batch_char(batch_size, num_skips, skip_window):
       targets_to_avoid.append(target)
       batch[i * num_skips + j] = buffer[skip_window]
       labels[i * num_skips + j, 0] = buffer[target]
-    buffer.append(char_data[data_index])
-    data_index = (data_index + 1) % len(char_data)
+    buffer.append(char_data[char_data_index])
+    char_data_index = (char_data_index + 1) % len(char_data)
   # Backtrack a little bit to avoid skipping words in the end of a batch
-  data_index = (data_index + len(char_data) - span) % len(char_data)
+  char_data_index = (char_data_index + len(char_data) - span) % len(char_data)
   return batch, labels
 
 batch, labels = generate_batch(batch_size=8, num_skips=2, skip_window=1)
@@ -134,7 +134,8 @@ skip_window = 2       # How many words to consider left and right.
 num_skips = 2         # How many times to reuse an input to generate a label.
 skip_char_window = 2
 num_char_skips = 3
-
+char_vocabulary_size = len(char_dictionary)
+print(char_vocabulary_size)
 # We pick a random validation set to sample nearest neighbors. Here we limit the
 # validation samples to the words that have a low numeric ID, which by
 # construction are also the most frequent.
@@ -163,7 +164,7 @@ with graph.as_default():
   with tf.device('/cpu:0'):
     # Look up embeddings for inputs.
     embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
-    char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size]),-1.0,1.0)
+    char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
     embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
 
@@ -194,7 +195,7 @@ with graph.as_default():
                      biases=nce_char_biases,
                      labels=train_char_labels,
                      inputs=char_embed,
-                     num_sampled=num_sampled,
+                     num_sampled=10,
                      num_classes=char_vocabulary_size))
 
   # Construct the SGD optimizer using a learning rate of 1.0.
@@ -209,7 +210,7 @@ with graph.as_default():
   similarity = tf.matmul(
       valid_embeddings, normalized_embeddings, transpose_b=True)
 
-  norm_char = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
+  norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
   normalized_char_embeddings = char_embeddings / norm_char
   valid_embeddings_char = tf.nn.embedding_lookup(
       normalized_char_embeddings, valid_char_dataset)
@@ -234,8 +235,8 @@ with tf.Session(graph=graph) as session:
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
     batch_char_inputs, batch_char_labels = generate_batch_char(
-        batch_size, num_skips, skip_window)
-    feed_dict_char = {train_inputs: batch_char_inputs, train_labels: batch_char_labels}
+        char_batch_size, num_skips, skip_window)
+    feed_dict_char = {train_input_chars: batch_char_inputs, train_char_labels: batch_char_labels}
 
     # We perform one update step by evaluating the optimizer op (including it
     # in the list of returned values for session.run()
