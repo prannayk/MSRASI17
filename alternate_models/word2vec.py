@@ -7,7 +7,10 @@ import math
 import os
 import random
 import zipfile
-
+import json
+import re
+import math
+import time
 import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -123,7 +126,8 @@ print("Loaded tweets")
 maxlen = 0
 maxlen_upper_limit = 50
 maxsize_upper_limit = 50
-
+browntokens = []
+reutertokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens + avail_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
