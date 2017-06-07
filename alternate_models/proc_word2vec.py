@@ -234,7 +234,15 @@ with graph.as_default():
 # Step 5: Begin training.
 num_steps = 800001
 
-# tweet list in integer marking form
+# loading tweet list in integer marking form
+word_batch_list = np.load("./word_embedding.npy")
+char_batch_list = np.load("./char_embedding.npy")
+with open("./tweet_ids.txt") as fil:
+  tweet_list = fil.readlines()
+batch_list = dict()
+for t in range(len(tweet_list)):
+  batch_list[tweet_list[t]] = [word_batch_list[t],char_batch_list[t]]
+
 
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
@@ -299,9 +307,9 @@ with tf.Session(graph=graph) as session:
       tweet_word_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,0],
       tweet_char_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,1]
     }
-    tweet_embedding_val += dict(zip(batch_list.keys()[t*batch_size:t*batch_size + batch_size],session.run(tweet_embedding,feed_dict=feed_dict))) ## tweet id loading
+    tweet_embedding_val += dict(zip(batch_list.keys()[t*batch_size:t*batch_size + batch_size],session.run(tweet_embedding,feed_dict=feed_dict)))
   sorted_tweets = sorted(tweet_embedding_val.items, key=operator.itemgetter(1))
   for t in sorted_tweets.keys()[:100]:
-    print('%s %s',%(t,' '.join(batch_list[t])))
+    print('%s %s',%(t))
   final_char_embedding = normalized_char_embeddings.eval()
 
