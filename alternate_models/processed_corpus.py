@@ -120,5 +120,6 @@ for i in range(len(corpus)):
 	word_list[i:i+1],char_list[i:i+1] = convert2embedding(corpus[corpus.keys()[i:i+1]])
 embeddings = np.concat([word_list.reshape(shape=[total_size, 1, word_max_len]),word_list.reshape(shape=[total_size,1,word_max_len,char_max_len])],axis=1)
 np.save('processed_tweets.npy',embeddings)
+
 with open("./tweet_ids.txt") as fil:
 	fil.write('\n'.join(corpus.keys()))
