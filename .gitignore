@@ -11,3 +11,4 @@ models/*.text
 models/*.txt
 models/skipgram
 models/attention_*
+*.npy

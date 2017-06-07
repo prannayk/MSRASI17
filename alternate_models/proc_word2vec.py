@@ -310,6 +310,6 @@ with tf.Session(graph=graph) as session:
     tweet_embedding_val += dict(zip(batch_list.keys()[t*batch_size:t*batch_size + batch_size],session.run(tweet_embedding,feed_dict=feed_dict)))
   sorted_tweets = sorted(tweet_embedding_val.items, key=operator.itemgetter(1))
   for t in sorted_tweets.keys()[:100]:
-    print('%s %s',%(t))
+    print('%s'%(t))
   final_char_embedding = normalized_char_embeddings.eval()
 

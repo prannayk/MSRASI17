@@ -1,4 +1,6 @@
 import json
+import collections
+import string
 import time
 import numpy as np
 import re
@@ -15,16 +17,23 @@ printable = set(string.printable)
 query_words = ['need','require']
 query_tokens = map(lambda x: st.stem(x),query_words)
 
+char_max_len = 0
+
 def filter_fn(x):
+	global char_max_len
 	p1 = re.sub('[%s]+'%(punctuation),' ',x)
 	p2 = filter(lambda x: x in printable, p1)
 	y = map(lambda x: st.stem(x).lower(), tknzr.tokenize(p2))
-	return filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
+	final = filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
+	for token in final:
+		if len(token) > char_max_len:
+			char_max_len = len(token)
+	return final
 
 print("Loading tweets")
 f = open('../dataset/nepal.jsonl')
 text = f.readlines()
-corpus = []
+corpus = dict()
 count = 0
 word_max_len = 0
 for line in text:
@@ -32,7 +41,7 @@ for line in text:
 	if count % 1000 == 0:
 		print(count)
 	tweet = json.loads(line)
-	corpus[tweet['id']] = filter_fn(tweet)
+	corpus[tweet['id']] = filter_fn(tweet['text'])
 	if len(corpus[tweet['id']]) > word_max_len:
 		word_max_len = len(corpus[tweet['id']])
 
@@ -117,10 +126,14 @@ word_list = np.ndarray(shape=[total_size, word_max_len],dtype=np.int32)
 char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.int32)
 
 for i in range(len(corpus)):
-	word_list[i:i+1],char_list[i:i+1] = convert2embedding(corpus[corpus.keys()[i:i+1]])
-embeddings = np.concat([word_list.reshape(shape=[total_size, 1, word_max_len]),word_list.reshape(shape=[total_size,1,word_max_len,char_max_len])],axis=1)
+<<<<<<< HEAD
+	if i % 1000 == 0 and i > 0:
+		print(i)
+	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
+	word_list[i] = word_markers[0]
+	char_list[i] = char_markers[0]
+np.save('./word_embedding.npy',word_list)
+np.save('./char_embedding.npy',char_list)
 
-np.save('processed_tweets.npy',embeddings)
-
-with open("./tweet_ids.txt") as fil:
+with open("./tweet_ids.txt",mode="w") as fil:
 	fil.write('\n'.join(corpus.keys()))
