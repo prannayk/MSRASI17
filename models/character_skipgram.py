@@ -299,9 +299,9 @@ class cbow_char():
 			embedding_label = tf.reshape(train_labels, shape=[self.batch_size*self.word_max_len,1])
 
 			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
-			loss = tf.reduce_mean(p)
+			loss = -tf.reduce_mean(p)
 
-			optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta).minimize(loss)
+			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
 			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
