@@ -281,6 +281,3 @@ with tf.Session(graph=graph) as session:
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
 
-# Step 6: Visualize the embeddings.
-
-
