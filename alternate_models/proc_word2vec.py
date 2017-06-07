@@ -27,6 +27,9 @@ print('Data size', len(words))
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
 
+with open("data.npy") as fil:
+	t = fil.readlines()
+word_max_len, char_max_len = map(lambda x: int(x),t)
 
 def build_dataset(words, vocabulary_size):
   count = [['UNK', -1]]
@@ -225,9 +228,9 @@ with graph.as_default():
   similarity_char = tf.matmul(
       valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
-  tweet_word_embed = tf.embedding_lookup(normalized_embeddings, tweet_word_holder)
-  tweet_char_embed = tf.reduce_mean(tf.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
-  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_2)*tweet_char_embed,axis=1)
+  tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
+  tweet_char_embed = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
+  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
   # Add variable initializer.
   init = tf.global_variables_initializer()
 

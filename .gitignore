@@ -12,3 +12,4 @@ models/*.txt
 models/skipgram
 models/attention_*
 *.npy
+tweet_ids.txt
