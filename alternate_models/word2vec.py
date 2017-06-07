@@ -128,6 +128,13 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 browntokens = []
 reutertokens = []
+
+tweetList = sentence_processor(tweetList)
+original_tweets = list(tweetList)
+print("Read and processed tweets and tokens")
+tokenList = process_tweets(tweetList, 1e-7)
+print("Done with tweetList")
+
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens + avail_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
