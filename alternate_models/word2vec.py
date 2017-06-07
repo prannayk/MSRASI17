@@ -138,8 +138,8 @@ print("Done with tweetList")
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens + avail_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -196,15 +196,14 @@ char_size = len(char2cencoding)
 def convert2embedding(batch):
   global tweetList, batch_size, char2cencoding, word2count
   global char_max_len, word_max_len, flag
-  train_word = np.ndarray([len(batch),word_max_len],dtype=np.int32)
-  train_chars = np.ndarray([len(batch),word_max_len, char_max_len])
+  train_word = np.ndarray([len(batch)*word_max_len],dtype=np.int32)
+  train_chars = np.ndarray([len(batch)*word_max_len, char_max_len])
   count = 0
   for tweet in batch:
     tokens = tweet
     for t in range(word_max_len):
       if t >= len(tokens):
         train_word[count*word_max_len + t] = word2count['UNK']
-        train_chars[count*word_max_len + t] = np.zeros_like(train_chars[count,t])
       else:
         if tokens[t] in word2count:
           train_word[count*word_max_len + t] = word2count[tokens[t]]
@@ -216,11 +215,12 @@ def convert2embedding(batch):
   return train_word, train_chars
 
 def generate_batch(splice,batch_list):
-  batch = batch_list[splice*batch_size:splice*batch_size +  batch_size]
+  slic = splice*batch_size + batch_size % len(batch_list)
+  batch = batch_list[slic-batch_size:slic]
   train_word, _ = convert2embedding(batch)
   count = 0
   global word_max_len, word2count
-  train_labels = np.ndarray([batch_size, word_max_len, 1])
+  train_labels = np.ndarray([batch_size * word_max_len, 1])
   for tweet in batch:
     for t in range(word_max_len):
       l = t + np.random.randint(-skip_window, skip_window+1)
@@ -249,6 +249,8 @@ num_skips = 2         # How many times to reuse an input to generate a label.
 valid_size = 16     # Random set of words to evaluate similarity on.
 valid_window = 100  # Only pick dev samples in the head of the distribution.
 valid_examples = np.random.choice(valid_window, valid_size, replace=False)
+valid_examples[0] = word2count['need']
+valid_examples[1] = word2count['requir']
 num_sampled = 64    # Number of negative examples to sample.
 
 graph = tf.Graph()
@@ -256,8 +258,8 @@ graph = tf.Graph()
 with graph.as_default():
 
   # Input data.
-  train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
-  train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
+  train_inputs = tf.placeholder(tf.int32, shape=[batch_size*word_max_len])
+  train_labels = tf.placeholder(tf.int32, shape=[batch_size*word_max_len, 1])
   valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
 
   # Ops and variables pinned to the CPU because of missing GPU implementation
@@ -299,41 +301,42 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 100001
-
+num_steps = len(original_tweets) // batch_size
+st = 0
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
   init.run()
   print("Initialized")
 
   average_loss = 0
-  for step in xrange(num_steps):
-    batch_inputs, batch_labels = generate_batch(
-        batch_size, num_skips, skip_window)
-    feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
+  for roll in range(1000):
+    for step in xrange(num_steps):
+      batch_inputs, batch_labels = generate_batch(step, tweetList)
+      feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
     # We perform one update step by evaluating the optimizer op (including it
     # in the list of returned values for session.run()
-    _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
-    average_loss += loss_val
+      _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
+      average_loss += loss_val
 
-    if step % 2000 == 0:
-      if step > 0:
-        average_loss /= 2000
+      if st % 100 == 0:
+        if step > 0:
+          average_loss /= 100
       # The average loss is an estimate of the loss over the last 2000 batches.
-      print("Average loss at step ", step, ": ", average_loss)
-      average_loss = 0
+        print("Average loss at step ", step, ": ", average_loss)
+        average_loss = 0
 
     # Note that this is expensive (~20% slowdown if computed every 500 steps)
-    if step % 10000 == 0:
-      sim = similarity.eval()
-      for i in xrange(valid_size):
-        valid_word = reverse_dictionary[valid_examples[i]]
-        top_k = 8  # number of nearest neighbors
-        nearest = (-sim[i, :]).argsort()[1:top_k + 1]
-        log_str = "Nearest to %s:" % valid_word
-        for k in xrange(top_k):
-          close_word = reverse_dictionary[nearest[k]]
-          log_str = "%s %s," % (log_str, close_word)
-        print(log_str)
+      if st % 1000 == 0:
+        sim = similarity.eval()
+        for i in xrange(valid_size):
+          valid_word = count2word[valid_examples[i]]
+          top_k = 8  # number of nearest neighbors
+          nearest = (-sim[i, :]).argsort()[1:top_k + 1]
+          log_str = "Nearest to %s:" % valid_word
+          for k in xrange(top_k):
+            close_word = count2word[nearest[k]]
+            log_str = "%s %s," % (log_str, close_word)
+          print(log_str)
+      st+=1
   final_embeddings = normalized_embeddings.eval()
