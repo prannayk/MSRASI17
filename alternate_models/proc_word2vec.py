@@ -147,7 +147,12 @@ valid_examples = np.random.choice(valid_window, valid_size, replace=False)
 valid_char_examples = np.random.choice(valid_char_window, valid_char_size, replace=False)
 valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
-char_batch_size = 200
+char_batch_size = 64
+
+tweet_batch_size = 50
+lambda_1 = 0.7
+# word_max_len
+# char_max_lens
 
 graph = tf.Graph()
 learning_rate = 5e-1
@@ -161,6 +166,8 @@ with graph.as_default():
   valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
   valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
   # Ops and variables pinned to the CPU because of missing GPU implementation
+  tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
+  tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
   with tf.device('/cpu:0'):
     # Look up embeddings for inputs.
     embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
@@ -179,6 +186,7 @@ with graph.as_default():
                             stddev=1.0 / math.sqrt(embedding_size)))
     nce_char_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
+    
   # Compute the average NCE loss for the batch.
   # tf.nce_loss automatically draws a new sample of the negative labels each
   # time we evaluate the loss.
@@ -216,11 +224,17 @@ with graph.as_default():
       normalized_char_embeddings, valid_char_dataset)
   similarity_char = tf.matmul(
       valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
+
+  tweet_word_embed = tf.embedding_lookup(normalized_embeddings, tweet_word_holder)
+  tweet_char_embed = tf.reduce_mean(tf.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
+  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_2)*tweet_char_embed,axis=1)
   # Add variable initializer.
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 1000001
+num_steps = 800001
+
+# tweet list in integer marking form
 
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
@@ -279,5 +293,15 @@ with tf.Session(graph=graph) as session:
           log_str = "%s %s," % (log_str, close_word)
         print(log_str)
   final_embeddings = normalized_embeddings.eval()
+  tweet_embedding_val = []
+  for t in range(len(batch_list) // batch_size):
+    feed_dict = {
+      tweet_word_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,0],
+      tweet_char_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,1]
+    }
+    tweet_embedding_val += dict(zip(batch_list.keys()[t*batch_size:t*batch_size + batch_size],session.run(tweet_embedding,feed_dict=feed_dict))) ## tweet id loading
+  sorted_tweets = sorted(tweet_embedding_val.items, key=operator.itemgetter(1))
+  for t in sorted_tweets.keys()[:100]:
+    print('%s %s',%(t,' '.join(batch_list[t])))
   final_char_embedding = normalized_char_embeddings.eval()
 
