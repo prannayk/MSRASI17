@@ -17,8 +17,8 @@ query_tokens = map(lambda x: st.stem(x),query_words)
 
 def filter_fn(x):
 	p1 = re.sub('[%s]+'%(punctuation),' ',x)
-	p1 = filter(lambda x: x in printable, p1)
-	y = map(lambda x: st.stem(x).lower(), tknzr.tokenize(p1))
+	p2 = filter(lambda x: x in printable, p1)
+	y = map(lambda x: st.stem(x).lower(), tknzr.tokenize(p2))
 	return filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
 
 print("Loading tweets")
