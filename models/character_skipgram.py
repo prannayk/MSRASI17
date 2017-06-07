@@ -117,12 +117,12 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
+#print("Loading Brown corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
 print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
@@ -131,15 +131,16 @@ print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+#browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
 print("Merging: ")
-
+browntokens = []
+reutertokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens + avail_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -218,8 +219,6 @@ def convert2embedding(batch):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char2cencoding[' ']
 		count += 1
-		if count % 100 == 0 and count > 0:
-			print(count)
 	return train_word, train_chars
 
 def generate_batch(splice,batch_list):
@@ -264,7 +263,7 @@ class cbow_char():
 		# variables
 		with tf.device("/cpu:00"):
 			self.char_embeddings = tf.Variable(tf.random_normal(shape=[char_size, char_embedding_size],stddev=1.0/math.sqrt(self.word_embedding_size)))
-			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0/math.sqrt(self.word_embedding_size)))
+			self.word_embeddings = tf.Variable(tf.random_normal(shape=[vocabulary_size, word_embedding_size], stddev=1.0/self.word_embedding_size))
 			# attention matrix
 			# weight1 = tf.Variable(tf.random_normal(shape=[char_embedding_size,self.dim1]))
 			# weight2 = tf.Variable(tf.random_normal(shape=[self.dim1,self.dim2]))
@@ -272,16 +271,21 @@ class cbow_char():
 			# self.weights1 = tf.stack([[weight1]*word_max_len]*batch_size)
 			# self.weights2 = tf.stack([[weight2]*word_max_len]*batch_size)
 			# self.weights3 = tf.stack([[weight3]*word_max_len]*batch_size)
+			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
+			self.norm_word = tf.nn.l2_normalize(self.word_embeddings,[0,1])
+			norm = tf.sqrt(tf.reduce_sum(tf.square(self.char_embeddings),1,keep_dims=True))
+			self.norm_char = tf.nn.l2_normalize(self.char_embeddings,[0,1])
 			self.nce_weight = tf.Variable(tf.truncated_normal([self.vocabulary_size, self.word_embedding_size],stddev = 1.0/math.sqrt(self.word_embedding_size)))
 			self.nce_bias = tf.Variable(tf.zeros([self.vocabulary_size]))
 
 	def embedding_creator(self,train_chars, train_words):
 		with tf.device("/cpu:0"):
-			words = tf.nn.embedding_lookup(self.word_embeddings,train_words)
-			chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
+			words = tf.nn.embedding_lookup(self.norm_word,train_words)
+			#chars = tf.nn.embedding_lookup(self.char_embeddings,train_chars)
 
-			character_embedding = tf.reduce_mean(chars, axis=2)
-			complete_embedding = tf.nn.l2_normalize(character_embedding + words,1,epsilon=1e-8)
+			#character_embedding = tf.reduce_mean(chars, axis=2)
+			#complete_embedding = character_embedding + words
+			complete_embedding = words
 			
 			return complete_embedding
 
@@ -301,18 +305,18 @@ class cbow_char():
 			p = tf.nn.nce_loss(weights=self.nce_weight,biases=self.nce_bias, labels=embedding_label, inputs=embedding_trainer, num_sampled=self.num_sampled, num_classes=self.vocabulary_size)
 			loss = tf.reduce_mean(p)
 
-			optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta).minimize(loss)
+			optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.word_embeddings),1,keep_dims=True))
-			normalized_embeddings_word = tf.stack(self.word_embeddings / norm)
+			normalized_embeddings_word = tf.nn.l2_normalize(self.word_embeddings,[0,1])
 			norm = tf.sqrt(tf.reduce_sum(tf.square(self.char_embeddings),1,keep_dims=True))
-			normalized_embeddings_char = tf.stack(self.char_embeddings / norm)
+			normalized_embeddings_char = tf.nn.l2_normalize(self.char_embeddings,[0,1])
 			valid_words = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len])
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
 			valid_embeddings = self.embedding_creator(valid_chars,valid_words)
 			valid_run = tf.reshape(valid_embeddings, shape=[self.batch_size, self.word_max_len, 1, self.word_embedding_size])
-			words_matrix = tf.reshape(tf.transpose(normalized_embeddings_word), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
-			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
+			words_matrix = tf.reshape(tf.transpose(self.word_embeddings), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
+			similarity = tf.nn.l2_normalize(tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1]),dim=1)
 
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
@@ -322,8 +326,8 @@ class cbow_char():
 			self.loss = loss
 			self.similarity = similarity
 
-			self.ir_words = tf.placeholder(tf.int32,shape=[self.total_batch_size, self.word_max_len])
-			self.ir_chars = tf.placeholder(tf.int32, shape=[self.total_batch_size, self.word_max_len, self.char_max_len])
+			self.ir_words = tf.placeholder(tf.int32,shape=[self.batch_size, self.word_max_len])
+			self.ir_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])
 
 			ir_embedding = self.embedding_creator(self.ir_chars,self.ir_words)
 			valid_ir = tf.reduce_mean(ir_embedding,axis=1)
@@ -342,9 +346,6 @@ class cbow_char():
 	def save(self):
 		url = self.saver.save(self.session,'./embedding.ckpt')
 		print("Saved in: %s"%(url))
-	def restore(self):
-		self.saver.restore(self.session, './embedding.ckpt')
-		print("Restored model")
 	def train(self,batch):
 		self.index += 1
 		feed_dict = {
@@ -380,7 +381,7 @@ class cbow_char():
 		with open("./logz/last_run_%d.txt"%(self.num_entry),mode="w") as fil:
 			fil.write(filedata.encode('utf-8','ignore'))
 
-	def train_on_batch(self,num_epoch, batch_list):
+	def train_on_batch(self,num_epoch, batch_list,case):
 		num_step = len(batch_list) // self.batch_size
 		validate = generate_batch(np.random.randint(1,20),batch_list)[:2]
 		for epoch in range(num_epoch):
@@ -395,41 +396,50 @@ class cbow_char():
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
 					self.validate(validate)
+			self.num_epoch = epoch + 1
+			self.rank_on_batch(original_tweets, case)
 
 	def create_query(self,num_queries,query_tokens,num_total):
 		print("Petrol")
-		self.num_queries = num_queries
-		self.query_tokens = query_tokens
+		self.num_queries = 1
+		self.query_tokens = 2
 		query_size = len(query_tokens)
 		self.total_batch_size = num_total
-		query_tweet_list = []
-		for r in range(num_queries):
-			l,t = np.random.randint(query_size,size=[2])
-			while l == t:
-				l,t = np.random.randint(query_size,size=[2])
-			query_tweet_list.append([self.query_tokens[l],self.query_tokens[t]])
+		query_tweet_list = [['need','requir']]
+#		for r in range(num_queries):
+#			l,t = np.random.randint(query_size,size=[2])
+#			while l == t:
+#				l,t = np.random.randint(query_size,size=[2])
+#			query_tweet_list.append([self.query_tokens[l],self.query_tokens[t]])
 		self.query_list = convert2embedding(query_tweet_list)
 		self.query_lit = list()
 
 	def rank_on_batch(self, batch_list,case):
 		print("Getting results")
 		ident = case + str(np.random.randint(100))
-		batch = convert2embedding(batch_list)
-		feed_dict = {
-			self.ir_words : batch[0],
-			self.ir_chars : batch[1],
-			self.query_lit[0] : self.query_list[1],
-			self.query_lit[1] : self.query_list[0]
-		}
-		query_similarity = self.session.run(self.query_similarity,feed_dict=feed_dict)
+		query_similarity = []
+		for i in range(int(math.ceil(len(batch_list) / self.batch_size))):
+			batch = convert2embedding(batch_list[i*self.batch_size:i*self.batch_size + self.batch_size])
+			feed_dict = {
+				self.ir_words : batch[0],
+				self.ir_chars : batch[1],
+				self.query_lit[0] : self.query_list[1],
+				self.query_lit[1] : self.query_list[0]
+			}
+			query_similarity += list(self.session.run(self.query_similarity,feed_dict=feed_dict))
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
+		tweet_list = []
+		for i in sorted_queries[:100]:
+			tweet_list.append(str(' '.join(batch_list[i[0]])))
+		with open("./skipgram/tweets_%d.txt"%(self.num_epoch),mode="w") as f:
+			f.write('\n'.join(tweet_list))
 		text_lines = []
 		count = 0
 		print(sorted_queries == list(set(sorted_queries)))
 		for t in sorted_queries:
-			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],count,t[1],ident))
+			text_lines.append('%s Q0 %s %d %f %s'%(case,reverseListing[t[0]],0,t[1],ident))
 			count += 1
-		with open('./skipgram_2.result.text',mode="w") as f:
+		with open('./skipgram_something_%d.result.text'%(self.num_epoch),mode="w") as f:
 			f.write('\n'.join(text_lines))
 
 	def expand_query(self, query_tokens):
@@ -452,7 +462,7 @@ class cbow_char():
 
 print("Entering Embedding maker")
 embeddingEncoder = cbow_char(
-		learning_rate = 5e-1,
+		learning_rate = 1,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
 		word_embedding_size = 128,
@@ -475,19 +485,12 @@ session = embeddingEncoder.session()
 print("Running init")
 embeddingEncoder.initialize()
 print("Variables Initialized")
-print("Running for brown and reuters")
-print("Running for Brown")
-embeddingEncoder.train_on_batch(5,brownsentences)
-print("Running for reuters")
-embeddingEncoder.train_on_batch(5, reutersentences)
+#print("Running for brown and reuters")
+#print("Running for Brown")
+#embeddingEncoder.train_on_batch(5,brownsentences)
+#print("Running for reuters")
+#embeddingEncoder.train_on_batch(5, reutersentences)
 print("Running for tweets")
-embeddingEncoder.train_on_batch(10, tweetList)
+embeddingEncoder.train_on_batch(5, tweetList,'Nepal-Need')
 embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Need')
 embeddingEncoder.create_query(5,avail_tokens,len(original_tweets))
-embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Avail')
-query_tokens = embeddingEncoder.expand_query(query_tokens)
-avail_tokens = embeddingEncoder.expand_query(avail_tokens)
-embeddingEncoder.create_query(5,query_tokens,len(original_tweets))
-embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Need')
-embeddingEncoder.create_query(5,avail_tokens,len(original_tweets))
-embeddingEncoder.rank_on_batch(original_tweets, 'Nepal-Avail')

@@ -7,3 +7,7 @@ models/embedding.*
 models/logs/*
 models/logz/*
 models/tweet*
+models/*.text
+models/*.txt
+models/skipgram
+models/attention_*

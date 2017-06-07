@@ -116,12 +116,12 @@ maxlen_upper_limit = 50
 maxsize_upper_limit = 50
 
 print("Loaded from file")
-print("Loading Brown corpus")
-brownsentences = sentence_processor([i for i in brown.sents()])
-len_brown_sents = len(brownsentences)
-print("Loading Reuters corpus")
-reutersentences = sentence_processor([i for i in reuters.sents()])
-len_reuters_sents = len(reutersentences)
+#print("Loading Brown corpus")
+#brownsentences = sentence_processor([i for i in brown.sents()])
+#len_brown_sents = len(brownsentences)
+#print("Loading Reuters corpus")
+#reutersentences = sentence_processor([i for i in reuters.sents()])
+#len_reuters_sents = len(reutersentences)
 print("Loading Twitter corpus")
 tweetList = sentence_processor(tweetList)
 original_tweets = list(tweetList)
@@ -130,14 +130,16 @@ print("Loaded everything")
 print("Read and processed tweets and tokens")
 tokenList = process_tweets(tweetList, 1e-7)
 print("Done with tweetList")	
-browntokens = token_processor(brownsentences)
-reutertokens = token_processor(reutersentences)
+#browntokens = token_processor(brownsentences)
+#reutertokens = token_processor(reutersentences)
 print("Merging: ")
+browntokens = []
+reutertokens = []
 tokenList = list(set(browntokens + reutertokens + tokenList.keys() + query_tokens) - set(stoplist))
 print("Processing tokens")
 tokenList = map(lambda x: re.sub('[%s]*'%(punctuation),'',x), filter(lambda x: filter_fn(x) ,tokenList))
-brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
-reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
+#brownsentences = map(lambda y: filter(lambda x: filter_fn(x),y), brownsentences)
+#reutersentences = map(lambda y: filter(lambda x: filter_fn(x),y), reutersentences)
 tweetList = map(lambda y: filter(lambda x: filter_fn(x),y), tweetList)
 original_tweets = map(lambda y: filter(lambda x: filter_fn(x),y), original_tweets)
 print("Built dataset of tweets for learning")
@@ -342,8 +344,8 @@ class attention_char():
 			valid_chars = tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len, self.char_max_len])	
 			_,valid_embeddings = self.embedding_creator(valid_chars,valid_words)
 			valid_run = tf.reshape(valid_embeddings, shape=[self.batch_size, self.word_max_len, 1, self.word_embedding_size])
-			words_matrix = tf.reshape(tf.transpose(normalized_embeddings_word), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
-			similarity = tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1])
+			words_matrix = tf.reshape(tf.transpose(self.word_embeddings), shape=[1,1,self.word_embedding_size,self.vocabulary_size])
+			similarity = tf.nn.l2_normalize(tf.nn.conv2d(valid_run, words_matrix, padding='SAME', strides = [1,1,1,1]),1)
 
 			self.saver = tf.train.Saver()
 			self.init = tf.global_variables_initializer()
@@ -361,7 +363,7 @@ class attention_char():
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len,self.char_max_len]))
 			self.query_lit.append(tf.placeholder(tf.int32,shape=[self.num_queries, self.word_max_len]))
 			query_vectors = tf.reduce_mean(self.embedding_creator(self.query_lit[0],self.query_lit[1],flag=True)[1],axis=1)
-			self.query_similarity = tf.reduce_max(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
+			self.query_similarity = tf.reduce_mean(tf.matmul(query_vectors,valid_ir,transpose_b=True),axis=0)
 
 			return optimizer, loss, train_words, train_chars, valid_words, valid_chars, similarity, (self.word_embeddings,self.char_embeddings) , (normalized_embeddings_word, normalized_embeddings_char)
 
@@ -407,10 +409,10 @@ class attention_char():
 				file_text.append("Said word %s is similar to word %s"%(count2word[batch[0][t,l]],count2word[word]))
 		filedata = '\n'.join(file_text)
 		self.num_entry += 1
-		with open("./last_attention_run.text",mode="w") as fil:
+		with open("./attention_log/last_attention_%d.text"%(self.num_entry),mode="w") as fil:
 			fil.write(filedata.encode('utf-8','ignore'))
 
-	def train_on_batch(self,num_epoch, batch_list):
+	def train_on_batch(self,num_epoch, batch_list,case):
 		num_step = len(batch_list) // self.batch_size
 		validate = generate_batch(np.random.randint(1,20),batch_list)
 		for epoch in range(num_epoch):
@@ -425,7 +427,8 @@ class attention_char():
 					start_time = time.time()
 				if step % 100 == 0 and step > 0:
 					self.validate(validate)
-			self.save()
+			self.num_epoch = epoch + 1
+			self.rank_on_batch(original_tweets,case)
 
 	def create_query(self,num_queries,query_tokens,num_total):
 		print("Petrol")
@@ -454,20 +457,26 @@ class attention_char():
 				self.query_lit[0] : self.query_list[1],
 				self.query_lit[1] : self.query_list[0]
 			}
-			query_similarity += self.session.run(self.query_similarity,feed_dict=feed_dict)
+			query_similarity += list(self.session.run(self.query_similarity,feed_dict=feed_dict))
 		sorted_queries = [i for i in sorted(enumerate(query_similarity),key=lambda x: -x[1])]
 		text_lines = []
 		count = 0
+		tweet_list = []
 		for t in sorted_queries:
-			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],count,t[1],ident))
+			if count < 50:
+				tweet_list.append(str(' '.join(batch_list[t[0]])))
+			text_lines.append('Nepal-Need Q0 %s %d %f %s'%(reverseListing[t[0]],0,t[1],ident))
 			count += 1
-		with open('./attention.result.text',mode="w") as f:
+		with open('./attention_%d.result.text'%(self.num_epoch),mode="w") as f:
 			f.write('\n'.join(text_lines))
-
+			f.close()
+		with open('./attention_tweets_%d.txt'%(self.num_epoch),mode="w") as fil:
+			fil.write('\n'.join(tweet_list))
+			fil.close()
 
 print("Entering Embedding maker")
 attention_model = attention_char(
-		learning_rate = 5e-1,
+		learning_rate = 5e-3,
 		dim1 = 64, dim2=16, dim3=1, 
 		char_embedding_size = 128,
 		word_embedding_size = 128,
@@ -491,9 +500,9 @@ attention_model.initialize()
 print("Variables Initialized")
 print("Running for brown and reuters")
 print("Running for Brown")
-attention_model.train_on_batch(5,brownsentences)
+#attention_model.train_on_batch(5,brownsentences)
 print("Running for reuters")
-attention_model.train_on_batch(5, reutersentences)
+#attention_model.train_on_batch(5, reutersentences)
 print("Running for tweets")
-attention_model.train_on_batch(10, tweetList)
+attention_model.train_on_batch(10, tweetList,'Nepal-Need')
 attention_model.rank_on_batch(original_tweets, np.random.randint(1e6))
