@@ -281,8 +281,8 @@ with graph.as_default():
       valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
   character_word_embeddings = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings),axis=1)
-  word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
-  final_embedding = lambda_2*word_embeddings + (1-lambda_2)*character_word_embeddings
+  # word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
+  final_embedding = character_word_embeddings
 
   loss_char_train = tf.reduce_mean(
       tf.nn.nce_loss(weights=nce_train_weights,
@@ -294,9 +294,9 @@ with graph.as_default():
 
   optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
 
-  tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
+  # tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
   tweet_char_embed = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
-  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
+  tweet_embedding = tf.reduce_mean(tweet_char_embed,axis=1)
   query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
@@ -313,20 +313,17 @@ with tf.Session(graph=graph) as session:
   init.run()
   count = 0
   print("Initialized")
-  final_embeddings = normalized_embeddings.eval()
-  final_char_embedding = normalized_char_embeddings.eval()
   np.save('./char2vec/word.npy',final_embeddings)
   np.save('./char2vec/char.npy',final_char_embedding)
 
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
-    np.save('./wordcharattn/word.npy',final_embeddings)
-    np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save('word_char2vec.ckpt',session)
-    batch_inputs, batch_labels = generate_batch(
-        batch_size, num_skips, skip_window)
-    feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
+    final_embeddings = normalized_embeddings.eval()
+    final_char_embedding = normalized_char_embeddings.eval()
+    np.save('./char2vec_just/word.npy',final_embeddings)
+    np.save('./char2vec_just/char.npy',final_char_embedding)
+    saver.save('char2vec_just.ckpt',session)
 
     batch_char_inputs, batch_char_labels = generate_batch_char(
         char_batch_size, num_skips, skip_window)
@@ -398,9 +395,12 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    np.save('./wordcharattn/word.npy',final_embeddings)
-    np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save('word_char2vec.ckpt',session)
+    final_embeddings = normalized_embeddings.eval()
+    final_char_embedding = normalized_char_embeddings.eval()
+    np.save('./char2vec_just/word.npy',final_embeddings)
+    np.save('./char2vec_just/char.npy',final_char_embedding)
+    saver.save('char2vec_just.ckpt',session)
+ 
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
