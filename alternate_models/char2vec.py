@@ -301,7 +301,7 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
-  tf.train.Saver()
+  saver =tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -313,8 +313,6 @@ with tf.Session(graph=graph) as session:
   init.run()
   count = 0
   print("Initialized")
-  np.save('./char2vec/word.npy',final_embeddings)
-  np.save('./char2vec/char.npy',final_char_embedding)
 
   average_loss = 0
   average_char_loss = 0
@@ -323,7 +321,7 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./char2vec_just/word.npy',final_embeddings)
     np.save('./char2vec_just/char.npy',final_char_embedding)
-    saver.save('char2vec_just.ckpt',session)
+    saver.save(session, 'char2vec_just.ckpt')
 
     batch_char_inputs, batch_char_labels = generate_batch_char(
         char_batch_size, num_skips, skip_window)
@@ -331,8 +329,6 @@ with tf.Session(graph=graph) as session:
 
     # We perform one update step by evaluating the optimizer op (including it
     # in the list of returned values for session.run()
-    _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
-    average_loss += loss_val
 
     _, loss_char_val = session.run([optimizer_char, loss_char], feed_dict=feed_dict_char)
     average_char_loss += loss_char_val
@@ -399,7 +395,7 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./char2vec_just/word.npy',final_embeddings)
     np.save('./char2vec_just/char.npy',final_char_embedding)
-    saver.save('char2vec_just.ckpt',session)
+    saver.save(session, 'char2vec_just.ckpt')
  
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
