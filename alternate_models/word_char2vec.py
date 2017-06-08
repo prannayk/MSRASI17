@@ -311,7 +311,7 @@ with graph.as_default():
       output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
       output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
 
-  output = tf.concat([output_bwd, output_fwd],axis=2)
+  output = tf.reduce_mean(tf.concat([output_bwd, output_fwd],axis=2),axis=1)
   # attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
   # output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
 
@@ -350,7 +350,7 @@ with graph.as_default():
       output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
-  tweet_char_embed = tf.concat([output_bwd, output_fwd],axis=2)
+  tweet_char_embed = tf.reshape(tf.reduce_mean(tf.concat([output_bwd, output_fwd],axis=2),axis=1),shape=[tweet_batch_size, word_max_len, embedding_size])
   # attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
   # tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
   tweet_embedding = tf.reduce_mean(lambda_2*tweet_word_embed + (1-lambda_2)*tweet_char_embed,axis=1)
@@ -374,9 +374,11 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
+    final_embeddings = normalized_embeddings.eval()
+    final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save('word_char2vec.ckpt',session)
+    saver.save(session,'word_char2vec.ckpt')
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -451,9 +453,11 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
+    final_embeddings = normalized_embeddings.eval()
+    final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save('word_char2vec.ckpt',session)
+    saver.save(session, 'word_char2vec.ckpt')
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
