@@ -221,7 +221,7 @@ with graph.as_default():
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
     embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
-    lambda_2 = tf.Variable(tf.random_normal(stddev=1.0))
+    lambda_2 = tf.Variable(tf.random_normal([1],stddev=1.0))
 
     # Construct the variables for the NCE loss
     nce_weights = tf.Variable(
@@ -230,9 +230,13 @@ with graph.as_default():
     nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
     # character weights
     nce_char_weights = tf.Variable(
-        tf.truncated_normal([vocabulary_size, embedding_size],
+        tf.truncated_normal([char_vocabulary_size, embedding_size],
                             stddev=1.0 / math.sqrt(embedding_size)))
-    nce_char_biases = tf.Variable(tf.zeros([vocabulary_size]))
+    nce_char_biases = tf.Variable(tf.zeros([char_vocabulary_size]))
+
+    nce_train_weights = tf.Variable(
+        tf.truncated_normal([vocabulary_size, embedding_size],stddev=1.0/math.sqrt(embedding_size)))
+    nce_train_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
     
   # Compute the average NCE loss for the batch.
@@ -304,6 +308,10 @@ with tf.Session(graph=graph) as session:
   init.run()
   count = 0
   print("Initialized")
+  final_embeddings = normalized_embeddings.eval()
+  final_char_embedding = normalized_char_embeddings.eval()
+  np.save('./char2vec/word.npy',final_embeddings)
+  np.save('./char2vec/char.npy',final_char_embedding)
 
   average_loss = 0
   average_char_loss = 0
