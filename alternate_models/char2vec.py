@@ -12,7 +12,7 @@ import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-
+buffer_index = 0
 # Read the data into a list of strings.
 def read_data(filename):
   """Extract the first file enclosed in a zip file as a list of words"""
@@ -137,8 +137,8 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   span = 2 * skip_window + 1  # [ skip_window target skip_window ]
   l = batch_size // word_max_len
   buffer_index = buffer_index + l % len(word_batch_list)
-  word_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len])
-  char_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len,char_max_len])
+  word_data = word_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len])
+  char_data = char_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len,char_max_len])
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -300,7 +300,8 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 500001
+#num_steps = 500001
+num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -386,11 +387,11 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    batch_inputs, batch_char_inputs, batch_labels = generate_batch_word(
+    batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
 
@@ -444,7 +445,7 @@ with tf.Session(graph=graph) as session:
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
       for t in sorted_tweets[:100]:
-        print(t)
+        print(t[0])
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
