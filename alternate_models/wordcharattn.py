@@ -357,8 +357,8 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 500001
-#num_steps = 0
+#num_steps = 500001
+num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -444,6 +444,8 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
+    if step % 100 == 0 and step > 0:
+      print(step)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -492,7 +494,7 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 10000 == 0 :
+        if len(tweet_embedding_val) % 1000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
