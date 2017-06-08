@@ -194,7 +194,7 @@ valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
 char_batch_size = 64
 query_tokens = map(lambda x: dictionary[x],['nee','requir'])
-tweet_batch_size = 50
+tweet_batch_size = 10
 lambda_1 = 0.7
 # word_max_len
 # char_max_lens
@@ -314,8 +314,8 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-#num_steps = 500001
-num_steps = 0
+num_steps = 500001
+#num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -397,11 +397,10 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./wordcharattention/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    print("Running:")
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -459,10 +458,10 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./wordcharattention/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./char2vec/word.npy',final_embeddings)
-  np.save('./char2vec/char.npy',final_char_embedding)
+  np.save('./wordcharattention/word.npy',final_embeddings)
+  np.save('./wordcharattention/char.npy',final_char_embedding)

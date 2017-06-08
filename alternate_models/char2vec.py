@@ -194,7 +194,7 @@ valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
 char_batch_size = 64
 query_tokens = map(lambda x: dictionary[x],['nee','requir'])
-tweet_batch_size = 50
+tweet_batch_size = 10
 lambda_1 = 0.7
 # word_max_len
 # char_max_lens
@@ -300,8 +300,8 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-#num_steps = 500001
-num_steps = 0
+num_steps = 500001
+#num_steps = 
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
