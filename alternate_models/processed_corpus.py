@@ -131,11 +131,11 @@ for i in range(len(corpus)):
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
 	word_list[i] = word_markers[0]
 	char_list[i] = char_markers[0]
-np.save('./word_embedding.npy',word_list)
-np.save('./char_embedding.npy',char_list)
+np.save('./nepal/word_embedding.npy',word_list)
+np.save('./nepal/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
-with open("./tweet_ids.txt",mode="w") as fil:
+with open("./nepal/tweet_ids.txt",mode="w") as fil:
 	fil.write('\n'.join(l))
 print_list = [str(word_max_len),str(char_max_len)]
-with open('data.npy',mode="w") as fil:
+with open('./nepal/data.npy',mode="w") as fil:
 	fil.write('\n'.join(print_list))
