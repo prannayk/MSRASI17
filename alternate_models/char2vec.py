@@ -301,6 +301,7 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
+  tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -320,6 +321,9 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
+    np.save('./wordcharattn/word.npy',final_embeddings)
+    np.save('./wordcharattn/char.npy',final_char_embedding)
+    saver.save('word_char2vec.ckpt',session)
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -394,6 +398,9 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
+    np.save('./wordcharattn/word.npy',final_embeddings)
+    np.save('./wordcharattn/char.npy',final_char_embedding)
+    saver.save('word_char2vec.ckpt',session)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}

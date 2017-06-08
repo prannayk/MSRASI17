@@ -136,9 +136,12 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   batch_chars = np.ndarray(shape=(batch_size, char_max_len),dtype=np.int32)
   span = 2 * skip_window + 1  # [ skip_window target skip_window ]
   l = batch_size // word_max_len
-  buffer_index = buffer_index + l % len(word_batch_list)
-  word_data = word_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len])
-  char_data = char_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len,char_max_len])
+  word_data = np.ndarray(shape=[l*word_max_len])
+  char_data = np.ndarray(shape=[l*word_max_len,char_max_len])
+  for i in range(l):
+   word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
+   char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
+   buffer_index = buffer_index + 1 % len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -355,6 +358,7 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
   init = tf.global_variables_initializer()
+  saver = tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -370,6 +374,9 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
+    np.save('./wordcharattn/word.npy',final_embeddings)
+    np.save('./wordcharattn/char.npy',final_char_embedding)
+    saver.save('word_char2vec.ckpt',session)
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -444,6 +451,9 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
+    np.save('./wordcharattn/word.npy',final_embeddings)
+    np.save('./wordcharattn/char.npy',final_char_embedding)
+    saver.save('word_char2vec.ckpt',session)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
