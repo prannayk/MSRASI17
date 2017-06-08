@@ -13,3 +13,4 @@ models/skipgram
 models/attention_*
 *.npy
 tweet_ids.txt
+tweet_list_*

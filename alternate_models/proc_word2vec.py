@@ -1,13 +1,13 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import operator
 import collections
 import math
 import os
 import random
 import zipfile
-
+import time
 import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -26,7 +26,9 @@ print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
-
+with open("data.npy") as fil:
+  t = fil.readlines()
+word_max_len, char_max_len = map(lambda x: int(x),t)
 
 def build_dataset(words, vocabulary_size):
   count = [['UNK', -1]]
@@ -148,7 +150,7 @@ valid_char_examples = np.random.choice(valid_char_window, valid_char_size, repla
 valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
 char_batch_size = 64
-
+query_tokens = map(lambda x: dictionary[x],['nee','requir'])
 tweet_batch_size = 50
 lambda_1 = 0.7
 # word_max_len
@@ -165,6 +167,7 @@ with graph.as_default():
   train_char_labels = tf.placeholder(tf.int32, shape=[char_batch_size, 1])
   valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
   valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
+  query_ints = tf.constant(query_tokens, dtype=tf.int32)
   # Ops and variables pinned to the CPU because of missing GPU implementation
   tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
   tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
@@ -225,9 +228,11 @@ with graph.as_default():
   similarity_char = tf.matmul(
       valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
-  tweet_word_embed = tf.embedding_lookup(normalized_embeddings, tweet_word_holder)
-  tweet_char_embed = tf.reduce_mean(tf.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
-  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_2)*tweet_char_embed,axis=1)
+  tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
+  tweet_char_embed = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
+  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
+  query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
+  query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
 
@@ -238,10 +243,8 @@ num_steps = 800001
 word_batch_list = np.load("./word_embedding.npy")
 char_batch_list = np.load("./char_embedding.npy")
 with open("./tweet_ids.txt") as fil:
-  tweet_list = fil.readlines()
+  tweet_list = map(lambda y: filter(lambda x: x != '\n',y), fil.readlines())
 batch_list = dict()
-for t in range(len(tweet_list)):
-  batch_list[tweet_list[t]] = [word_batch_list[t],char_batch_list[t]]
 
 
 with tf.Session(graph=graph) as session:
@@ -271,8 +274,12 @@ with tf.Session(graph=graph) as session:
 
     if step % 2000 == 0:
       if step > 0:
+        print(time.time()- start_time)
+        start_time = time.time()
         average_loss /= 2000
         average_char_loss /= 2000
+      else:
+        start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
       print("Average loss at step ", step, ": ", average_loss)
       print("Average character loss at step ", step, ": ", average_char_loss)
@@ -302,18 +309,25 @@ with tf.Session(graph=graph) as session:
           log_str = "%s %s," % (log_str, close_word)
         print(log_str)
       tweet_embedding_val = []
-      for t in range(len(batch_list) // batch_size):
+      for t in range(len(word_batch_list) // tweet_batch_size):
         feed_dict = {
-          tweet_word_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,0],
-          tweet_char_holder : batch_list.values()[t*batch_size:t*batch_size + batch_size,1]
+          tweet_word_holder : word_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size],
+          tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
-        tweet_embedding_val += dict(zip(batch_list.keys()[t*batch_size:t*batch_size + batch_size],session.run(tweet_embedding,feed_dict=feed_dict)))
-      sorted_tweets = sorted(tweet_embedding_val.items, key=operator.itemgetter(1))
-      for t in sorted_tweets.keys()[:100]:
-        print('%s'%(t))
+        l = session.run(query_similarity, feed_dict = feed_dict)
+	if len(tweet_embedding_val) % 1000 == 0 :
+	  print(len(tweet_embedding_val))
+        tweet_embedding_val += list(l) 
+      tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
+      sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
+      for t in sorted_tweets[:100]:
+        print(t)
       count += 1
-      with open("./tweet_list_%d"%(count),mode="w") as fw:
-        fw.write('\n'.join(map(lambda x: str(x),sorted_tweets.keys())))
+      file_list = []
+      for i in range(len(sorted_tweets)):
+        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+      with open("./tweet_list_%d.txt"%(count),mode="w") as fw:
+        fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
