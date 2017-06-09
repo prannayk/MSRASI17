@@ -22,7 +22,7 @@ def filter_fn(x):
 	return filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
 
 print("Loading tweets")
-f = open('../dataset/nepal.jsonl')
+f = open('../dataset/italy.jsonl')
 text = f.readlines()
 corpus = []
 count = 0
