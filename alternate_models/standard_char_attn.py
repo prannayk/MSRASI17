@@ -286,32 +286,32 @@ with graph.as_default():
   similarity_char = tf.matmul(
       valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
-  character_word_embeddings = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
-  with tf.variable_scope("lstm"):
-    lstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
-  revlstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
-  output_fwd = []
-  output_bwd = []
-  state_fwd = lstm.zero_state(batch_size, dtype=tf.float32)
-  state_bwd = revlstm.zero_state(batch_size, dtype=tf.float32)
-  for l in range(char_max_len):
-    if l > 0: 
-      with tf.variable_scope(tf.get_variable_scope(),reuse=True):
-        with tf.variable_scope("lstm"):
-          cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
-        cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
-        cell_output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
-        cell_output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
-        output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
-        output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
-    else:
-      with tf.variable_scope("lstm"):
-        cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
-      cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
-      output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
-      output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
+  intermediate = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
+  # with tf.variable_scope("lstm"):
+  #   lstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
+  # revlstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
+  # output_fwd = []
+  # output_bwd = []
+  # state_fwd = lstm.zero_state(batch_size, dtype=tf.float32)
+  # state_bwd = revlstm.zero_state(batch_size, dtype=tf.float32)
+  # for l in range(char_max_len):
+  #   if l > 0: 
+  #     with tf.variable_scope(tf.get_variable_scope(),reuse=True):
+  #       with tf.variable_scope("lstm"):
+  #         cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
+  #       cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
+  #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
+  #       cell_output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
+  #       output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
+  #       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
+  #   else:
+  #     with tf.variable_scope("lstm"):
+  #       cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
+  #     cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
+  #     output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
+  #     output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
 
-  intermediate = tf.concat([output_bwd, output_fwd],axis=2)
+  # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
   attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
   output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
 
@@ -330,7 +330,7 @@ with graph.as_default():
     optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
 
   tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
-  tweet_char_embeddings = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size//2])
+  intermediate = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size])
   # output_fwd = []
   # output_bwd = []
   # state_fwd = lstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
@@ -350,7 +350,7 @@ with graph.as_default():
   #     output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
   #     output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
-  intermediate = tf.concat([output_bwd, output_fwd],axis=3)
+  # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
   attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
   tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
   tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
