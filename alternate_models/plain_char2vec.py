@@ -12,7 +12,7 @@ import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-
+buffer_index = 1
 # Read the data into a list of strings.
 def read_data(filename):
   """Extract the first file enclosed in a zip file as a list of words"""
@@ -301,11 +301,13 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
+  saver = tf.train.Saver()
 
 # Step 5: Begin training.
-#num_steps = 500001
-num_steps = 1
+num_steps = 500001
+#num_steps = 1
 num_steps_train = 500001
+#num_steps_train = 1
 
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
@@ -334,6 +336,7 @@ with tf.Session(graph=graph) as session:
 
     if step % 2000 == 0:
       if step > 0:
+        print("Running plain plain_char2vec")
         print(time.time()- start_time)
         start_time = time.time()
         average_loss /= 2000
@@ -388,8 +391,9 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    if step == 0 : print("This is not your usual step")
-    batch_inputs, batch_char_inputs, batch_labels = generate_batch_word(
+    if step == 0 : 
+      print("This is not your usual step") 
+    batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
 
@@ -437,7 +441,7 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 1000 == 0 :
+        if len(tweet_embedding_val) % 10000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
@@ -446,10 +450,11 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./char2vec/word.npy',final_embeddings)
-  np.save('./char2vec/char.npy',final_char_embedding)
+  np.save('./plain_char2vec/word.npy',final_embeddings)
+  np.save('./plain_char2vec/char.npy',final_char_embedding)
+  saver.save(session, 'plain2_char2vec.ckpt')

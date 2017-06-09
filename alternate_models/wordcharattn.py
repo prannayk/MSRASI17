@@ -362,7 +362,7 @@ with graph.as_default():
 
 # Step 5: Begin training.
 num_steps = 500001
-# num_steps = 0
+ num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:

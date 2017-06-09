@@ -141,7 +141,7 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   for i in range(l):
    word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
    char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
-   buffer_index = buffer_index + 1 % len(word_batch_list)
+   buffer_index = (buffer_index + 1)% len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -304,7 +304,7 @@ with graph.as_default():
 
 # Step 5: Begin training.
 num_steps = 500001
-#num_steps = 
+num_steps = 0 
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
