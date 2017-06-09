@@ -20,13 +20,13 @@ def read_data(filename):
     data = f.read()
     data_chars = list(set(data))
   return data.split(),data_chars,data
-filename = './nepal/corpus.txt'
+filename = './italy/corpus.txt'
 words,chars,character_data = read_data(filename)
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
-with open("./nepal/data.npy") as fil:
+with open("./italy/data.npy") as fil:
   t = fil.readlines()
 word_max_len, char_max_len = map(lambda x: int(x),t)
 
@@ -67,9 +67,9 @@ data_index = 0
 char_data_index = 0
 
 # loading tweet list in integer marking form
-word_batch_list = np.load("./nepal/word_embedding.npy")
-char_batch_list = np.load("./nepal/char_embedding.npy")
-with open("./nepal/tweet_ids.txt") as fil:
+word_batch_list = np.load("./italy/word_embedding.npy")
+char_batch_list = np.load("./italy/char_embedding.npy")
+with open("./italy/tweet_ids.txt") as fil:
   tweet_list = map(lambda y: filter(lambda x: x != '\n',y), fil.readlines())
 batch_list = dict()
 
@@ -387,7 +387,7 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+        file_list.append('Italy-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
@@ -450,7 +450,7 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+        file_list.append('italy-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
