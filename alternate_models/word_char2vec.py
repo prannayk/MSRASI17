@@ -378,7 +378,6 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save(session,'word_char2vec.ckpt')
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -395,12 +394,12 @@ with tf.Session(graph=graph) as session:
     _, loss_char_val = session.run([optimizer_char, loss_char], feed_dict=feed_dict_char)
     average_char_loss += loss_char_val
 
-    if step % 2000 == 0:
+    if step % 100 == 0:
       if step > 0:
         print(time.time()- start_time)
         start_time = time.time()
-        average_loss /= 2000
-        average_char_loss /= 2000
+        average_loss /= 100
+        average_char_loss /= 100
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
@@ -438,26 +437,24 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 1000 == 0 :
+        if len(tweet_embedding_val) % 10000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t[0])
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./wordcharattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
+      print("Written tweet_list")
   average_loss = 0
   for step in xrange(num_steps_train):
     final_embeddings = normalized_embeddings.eval()
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save(session, 'word_char2vec.ckpt')
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -465,11 +462,11 @@ with tf.Session(graph=graph) as session:
     _, loss_train_val = session.run([optimizer_train, loss_char_train], feed_dict=feed_dict)
     average_loss += loss_train_val
 
-    if step % 2000 == 0:
+    if step % 100 == 0:
       if step > 0:
         print(time.time()- start_time)
         start_time = time.time()
-        average_loss /= 2000
+        average_loss /= 100
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
@@ -517,7 +514,9 @@ with tf.Session(graph=graph) as session:
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./wordcharattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
-
+  
+  saver.save(session, 'word_char2vec.ckpt')
+  
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
   np.save('./wordcharattn/word.npy',final_embeddings)

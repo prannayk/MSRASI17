@@ -1,5 +1,6 @@
 *.jsonl
 char2vec_just*
+just_char*
 checkp*
 *.ckpt
 *.sw*
