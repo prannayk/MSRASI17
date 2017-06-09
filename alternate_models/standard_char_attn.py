@@ -220,7 +220,9 @@ with graph.as_default():
     tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
     tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
     # Look up embeddings for inputs.
+    embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
+    embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
     lambda_2 = tf.Variable(tf.random_normal([1],stddev=1.0))
 
@@ -231,6 +233,11 @@ with graph.as_default():
     weights_tweet = tf.stack([w1]*tweet_batch_size*word_max_len)
     vvector_tweet = tf.stack([w2]*tweet_batch_size*word_max_len)
     # Construct the variables for the NCE loss
+    nce_weights = tf.Variable(
+        tf.truncated_normal([vocabulary_size, embedding_size],
+                            stddev=1.0 / math.sqrt(embedding_size)))
+    nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
+    # character weights
     nce_char_weights = tf.Variable(
         tf.truncated_normal([vocabulary_size, embedding_size ],
                             stddev=1.0 / math.sqrt(embedding_size )))
@@ -241,10 +248,13 @@ with graph.as_default():
                             stddev=1.0 / math.sqrt(embedding_size)))
     nce_train_biases = tf.Variable(tf.zeros([vocabulary_size]))
     
-  # Compute the average NCE loss for the batch.
-  # tf.nce_loss automatically draws a new sample of the negative labels each
-  # time we evaluate the loss.
-    
+    loss = tf.reduce_mean(
+        tf.nn.nce_loss(weights=nce_weights,
+                       biases=nce_biases,
+                       labels=train_labels,
+                       inputs=embed,
+                       num_sampled=num_sampled,
+                       num_classes=vocabulary_size))
 
     loss_char = tf.reduce_mean(
         tf.nn.nce_loss(weights=nce_char_weights,
@@ -255,9 +265,16 @@ with graph.as_default():
                        num_classes=vocabulary_size))
 
     # Construct the SGD optimizer using a learning rate of 1.0.
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
     optimizer_char = tf.train.AdamOptimizer(learning_rate /5).minimize(loss_char)
 
     # Compute the cosine similarity between minibatch examples and all embeddings.
+    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
+    normalized_embeddings = embeddings / norm
+    valid_embeddings = tf.nn.embedding_lookup(
+        normalized_embeddings, valid_dataset)
+    similarity = tf.matmul(
+        valid_embeddings, normalized_embeddings, transpose_b=True)
 
     norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
     normalized_char_embeddings = char_embeddings / norm_char
@@ -306,12 +323,19 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
+    batch_inputs, batch_labels = generate_batch(
+        batch_size, num_skips, skip_window)
+    feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
+
     batch_char_inputs, batch_char_labels = generate_batch_char(
         char_batch_size, num_skips, skip_window)
     feed_dict_char = {train_input_chars: batch_char_inputs, train_char_labels: batch_char_labels}
 
     # We perform one update step by evaluating the optimizer op (including it
     # in the list of returned values for session.run()
+    _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
+    average_loss += loss_val
+
     _, loss_char_val = session.run([optimizer_char, loss_char], feed_dict=feed_dict_char)
     average_char_loss += loss_char_val
 
@@ -331,7 +355,17 @@ with tf.Session(graph=graph) as session:
 
     # Note that this is expensive (~20% slowdown if computed every 500 steps)
     if step % 10000 == 0:
+      sim = similarity.eval()
       sim_char = similarity_char.eval()
+      for i in xrange(valid_size):
+        valid_word = reverse_dictionary[valid_examples[i]]
+        top_k = 8  # number of nearest neighbors
+        nearest = (-sim[i, :]).argsort()[1:top_k + 1]
+        log_str = "Nearest to %s:" % valid_word
+        for k in xrange(top_k):
+          close_word = reverse_dictionary[nearest[k]]
+          log_str = "%s %s," % (log_str, close_word)
+        print(log_str)
       for i in xrange(valid_char_size):
         valid_word = reverse_char_dictionary[valid_char_examples[i]]
         top_k = 8  # number of nearest neighbors
@@ -427,9 +461,5 @@ with tf.Session(graph=graph) as session:
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  weight1 = w1.eval()
-  weight2 = w2.eval()
-  np.save('./std_char_attn/word.npy',final_embeddings)
-  np.save('./std_char_attn/char.npy',final_char_embedding)
-  np.save('./std_char_attn/weight1.npy',weight1)
-  np.save('./std_char_attn/weight2.npy',weight2)
+  np.save('./wcattn/word.npy',final_embeddings)
+  np.save('./wcattn/char.npy',final_char_embedding)
