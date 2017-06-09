@@ -207,18 +207,18 @@ learning_rate = 5e-1
 with graph.as_default():
 
   # Input data.
-  train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
-  train_input_chars = tf.placeholder(tf.int32, shape=[char_batch_size])
-  train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
-  train_char_labels = tf.placeholder(tf.int32, shape=[char_batch_size, 1])
-  word_char_embeddings = tf.placeholder(tf.int32, shape=[batch_size,char_max_len])
-  valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
-  valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
-  query_ints = tf.constant(query_tokens, dtype=tf.int32)
-  # Ops and variables pinned to the CPU because of missing GPU implementation
-  tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
-  tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
   with tf.device('/gpu:0'):
+    train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
+    train_input_chars = tf.placeholder(tf.int32, shape=[char_batch_size])
+    train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
+    train_char_labels = tf.placeholder(tf.int32, shape=[char_batch_size, 1])
+    word_char_embeddings = tf.placeholder(tf.int32, shape=[batch_size,char_max_len])
+    valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
+    valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
+    query_ints = tf.constant(query_tokens, dtype=tf.int32)
+    # Ops and variables pinned to the CPU because of missing GPU implementation
+    tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
+    tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
     # Look up embeddings for inputs.
     embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
@@ -251,114 +251,113 @@ with graph.as_default():
   # Compute the average NCE loss for the batch.
   # tf.nce_loss automatically draws a new sample of the negative labels each
   # time we evaluate the loss.
-  loss = tf.reduce_mean(
-      tf.nn.nce_loss(weights=nce_weights,
-                     biases=nce_biases,
-                     labels=train_labels,
-                     inputs=embed,
-                     num_sampled=num_sampled,
-                     num_classes=vocabulary_size))
+    loss = tf.reduce_mean(
+        tf.nn.nce_loss(weights=nce_weights,
+                       biases=nce_biases,
+                       labels=train_labels,
+                       inputs=embed,
+                       num_sampled=num_sampled,
+                       num_classes=vocabulary_size))
 
-  loss_char = tf.reduce_mean(
-      tf.nn.nce_loss(weights=nce_char_weights,
-                     biases=nce_char_biases,
-                     labels=train_char_labels,
-                     inputs=char_embed,
-                     num_sampled=10,
-                     num_classes=vocabulary_size))
+    loss_char = tf.reduce_mean(
+        tf.nn.nce_loss(weights=nce_char_weights,
+                       biases=nce_char_biases,
+                       labels=train_char_labels,
+                       inputs=char_embed,
+                       num_sampled=10,
+                       num_classes=vocabulary_size))
 
-  # Construct the SGD optimizer using a learning rate of 1.0.
-  optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
-  optimizer_char = tf.train.AdamOptimizer(learning_rate /5).minimize(loss_char)
+    # Construct the SGD optimizer using a learning rate of 1.0.
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+    optimizer_char = tf.train.AdamOptimizer(learning_rate /5).minimize(loss_char)
 
-  # Compute the cosine similarity between minibatch examples and all embeddings.
-  norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
-  normalized_embeddings = embeddings / norm
-  valid_embeddings = tf.nn.embedding_lookup(
-      normalized_embeddings, valid_dataset)
-  similarity = tf.matmul(
-      valid_embeddings, normalized_embeddings, transpose_b=True)
+    # Compute the cosine similarity between minibatch examples and all embeddings.
+    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
+    normalized_embeddings = embeddings / norm
+    valid_embeddings = tf.nn.embedding_lookup(
+        normalized_embeddings, valid_dataset)
+    similarity = tf.matmul(
+        valid_embeddings, normalized_embeddings, transpose_b=True)
 
-  norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
-  normalized_char_embeddings = char_embeddings / norm_char
-  valid_embeddings_char = tf.nn.embedding_lookup(
-      normalized_char_embeddings, valid_char_dataset)
-  similarity_char = tf.matmul(
-      valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
+    norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
+    normalized_char_embeddings = char_embeddings / norm_char
+    valid_embeddings_char = tf.nn.embedding_lookup(
+        normalized_char_embeddings, valid_char_dataset)
+    similarity_char = tf.matmul(
+        valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
-  intermediate = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
-  # with tf.variable_scope("lstm"):
-  #   lstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
-  # revlstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
-  # output_fwd = []
-  # output_bwd = []
-  # state_fwd = lstm.zero_state(batch_size, dtype=tf.float32)
-  # state_bwd = revlstm.zero_state(batch_size, dtype=tf.float32)
-  # for l in range(char_max_len):
-  #   if l > 0: 
-  #     with tf.variable_scope(tf.get_variable_scope(),reuse=True):
-  #       with tf.variable_scope("lstm"):
-  #         cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
-  #       cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
-  #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
-  #       cell_output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
-  #       output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
-  #       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
-  #   else:
-  #     with tf.variable_scope("lstm"):
-  #       cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
-  #     cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
-  #     output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
-  #     output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
+    intermediate = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
+    # with tf.variable_scope("lstm"):
+    #   lstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
+    # revlstm = tf.contrib.rnn.BasicLSTMCell(embedding_size//2,reuse=tf.get_variable_scope().reuse)
+    # output_fwd = []
+    # output_bwd = []
+    # state_fwd = lstm.zero_state(batch_size, dtype=tf.float32)
+    # state_bwd = revlstm.zero_state(batch_size, dtype=tf.float32)
+    # for l in range(char_max_len):
+    #   if l > 0: 
+    #     with tf.variable_scope(tf.get_variable_scope(),reuse=True):
+    #       with tf.variable_scope("lstm"):
+    #         cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
+    #       cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
+    #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
+    #       cell_output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
+    #       output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
+    #       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
+    #   else:
+    #     with tf.variable_scope("lstm"):
+    #       cell_output_fwd, state_fwd = lstm(character_word_embeddings[:,l],state_fwd)
+    #     cell_output_bwd, state_bwd = revlstm(character_word_embeddings[:,l],state_bwd)
+    #     output_fwd = tf.reshape(cell_output_fwd, shape=[batch_size,1,embedding_size//2])
+    #     output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
 
-  # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
-  attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
-  output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
+    # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
+    attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
+    output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
 
-  word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
-  final_embedding = lambda_2*word_embeddings + (1-lambda_2)*output
-  with tf.variable_scope(tf.get_variable_scope(), reuse=None):
+    word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
+    final_embedding = lambda_2*word_embeddings + (1-lambda_2)*output
+    with tf.variable_scope(tf.get_variable_scope(), reuse=None):
 
-    loss_char_train = tf.reduce_mean(
-      tf.nn.nce_loss(weights=nce_train_weights,
-                     biases=nce_train_biases,
-                     labels=train_labels,
-                     inputs=final_embedding,
-                     num_sampled=64,
-                     num_classes=vocabulary_size))
+      loss_char_train = tf.reduce_mean(
+        tf.nn.nce_loss(weights=nce_train_weights,
+                       biases=nce_train_biases,
+                       labels=train_labels,
+                       inputs=final_embedding,
+                       num_sampled=64,
+                       num_classes=vocabulary_size))
 
-    optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
+      optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
 
-  tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
-  intermediate = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size])
-  # output_fwd = []
-  # output_bwd = []
-  # state_fwd = lstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
-  # state_bwd = revlstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
-  # for l in range(char_max_len):
-  #   with tf.variable_scope(tf.get_variable_scope(),reuse=True):
-  #     with tf.variable_scope("lstm"):
-  #       cell_output_fwd, state_fwd = lstm(tweet_char_embeddings[:,l],state_fwd)
-  #     cell_output_bwd, state_bwd = revlstm(tweet_char_embeddings[:,l],state_bwd)
-  #   if l == 0: 
-  #     output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #   else:
-  #     with tf.variable_scope("lstm"):
-  #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     cell_output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
-  #     output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
+    tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
+    intermediate = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size])
+    # output_fwd = []
+    # output_bwd = []
+    # state_fwd = lstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
+    # state_bwd = revlstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
+    # for l in range(char_max_len):
+    #   with tf.variable_scope(tf.get_variable_scope(),reuse=True):
+    #     with tf.variable_scope("lstm"):
+    #       cell_output_fwd, state_fwd = lstm(tweet_char_embeddings[:,l],state_fwd)
+    #     cell_output_bwd, state_bwd = revlstm(tweet_char_embeddings[:,l],state_bwd)
+    #   if l == 0: 
+    #     output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+    #     output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+    #   else:
+    #     with tf.variable_scope("lstm"):
+    #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+    #     cell_output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+    #     output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
+    #     output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
-  # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
-  attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
-  tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
-  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
-  query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
-  query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
+    # intermediate = tf.concat([output_bwd, output_fwd],axis=2)
+    attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
+    tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
+    tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
+    query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
+    query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
-  init = tf.global_variables_initializer()
-  saver = tf.train.Saver()
+    init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -378,7 +377,6 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save(session, 'word_charattn.ckpt')
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -457,7 +455,6 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./wordcharattn/word.npy',final_embeddings)
     np.save('./wordcharattn/char.npy',final_char_embedding)
-    saver.save(session,'word_charattn.ckpt')
     if step % 100 == 0 and step > 0:
       print(step)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
