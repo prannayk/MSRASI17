@@ -304,7 +304,6 @@ with graph.as_default():
 
 # Step 5: Begin training.
 num_steps = 500001
-num_steps = 0 
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -368,7 +367,7 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 1000 == 0 :
+        if len(tweet_embedding_val) % 10000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
@@ -433,7 +432,7 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 1000 == 0 :
+        if len(tweet_embedding_val) % 10000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))

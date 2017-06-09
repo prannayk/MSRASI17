@@ -12,7 +12,7 @@ import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-buffer_index = 1
+buffer_index = 0
 # Read the data into a list of strings.
 def read_data(filename):
   """Extract the first file enclosed in a zip file as a list of words"""
@@ -141,7 +141,7 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   for i in range(l):
    word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
    char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
-   buffer_index = buffer_index + 1 % len(word_batch_list)
+   buffer_index = (buffer_index + 1) % len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -308,7 +308,7 @@ num_steps = 500001
 #num_steps = 1
 num_steps_train = 500001
 #num_steps_train = 1
-
+base_time = time.time()
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
   init.run()
@@ -341,6 +341,7 @@ with tf.Session(graph=graph) as session:
         start_time = time.time()
         average_loss /= 2000
         average_char_loss /= 2000
+	print(time.time() - base_time)
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
@@ -387,7 +388,7 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):

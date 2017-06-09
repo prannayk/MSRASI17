@@ -141,7 +141,7 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   for i in range(l):
    word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
    char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
-   buffer_index = buffer_index + 1 % len(word_batch_list)
+   buffer_index = (buffer_index + 1 )% len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -308,7 +308,7 @@ with graph.as_default():
     query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
     init = tf.global_variables_initializer()
-
+base_time = time.time()
 # Step 5: Begin training.
 num_steps = 500001
 # num_steps = 0
@@ -393,7 +393,7 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./stdwcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
@@ -415,6 +415,7 @@ with tf.Session(graph=graph) as session:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
       print("Average loss at step ", step, ": ", average_loss)
+      print(time.time() - base_time)
       average_loss = 0
       average_char_loss = 0
 
@@ -456,10 +457,10 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./stdwcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./wcattn/word.npy',final_embeddings)
-  np.save('./wcattn/char.npy',final_char_embedding)
+  np.save('./stdwcattn/word.npy',final_embeddings)
+  np.save('./stdwcattn/char.npy',final_char_embedding)

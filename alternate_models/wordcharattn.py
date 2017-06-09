@@ -141,7 +141,7 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   for i in range(l):
    word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
    char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
-   buffer_index = buffer_index + 1 % len(word_batch_list)
+   buffer_index = (buffer_index + 1) % len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -350,7 +350,7 @@ with graph.as_default():
       output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
-  intermediate = tf.concat([output_bwd, output_fwd],axis=3)
+  intermediate = tf.concat([output_bwd, output_fwd],axis=2)
   attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
   tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
   tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
@@ -362,7 +362,6 @@ with graph.as_default():
 
 # Step 5: Begin training.
 num_steps = 500001
- num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
