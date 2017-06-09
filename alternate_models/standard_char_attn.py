@@ -207,7 +207,7 @@ learning_rate = 5e-1
 with graph.as_default():
 
   # Input data.
-  with tf.device('/gpu:0'):
+  with tf.device('/cpu:0'):
     train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
     train_input_chars = tf.placeholder(tf.int32, shape=[char_batch_size])
     train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
