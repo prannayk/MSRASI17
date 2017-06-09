@@ -218,15 +218,15 @@ with graph.as_default():
   # Ops and variables pinned to the CPU because of missing GPU implementation
   tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
   tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
-  with tf.device('/cpu:0'):
+  with tf.device('/gpu:0'):
     # Look up embeddings for inputs.
     embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
-    char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size//2],-1.0,1.0))
+    char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
     embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
     lambda_2 = tf.Variable(tf.random_normal([1],stddev=1.0))
 
-    w1 = tf.Variable(tf.random_normal([embedding_size,embedding_size // 4],stddev=1.0/math.sqrt(embedding_size)))
+    w1 = tf.Variable(tf.random_normal([embedding_size ,embedding_size // 4],stddev=1.0/math.sqrt(embedding_size)))
     w2 = tf.Variable(tf.random_normal([embedding_size // 4,1],stddev=1.0/math.sqrt(embedding_size)))
     weights = tf.stack([w1]*batch_size)
     vvector = tf.stack([w2]*batch_size)
@@ -239,8 +239,8 @@ with graph.as_default():
     nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
     # character weights
     nce_char_weights = tf.Variable(
-        tf.truncated_normal([vocabulary_size, embedding_size // 2],
-                            stddev=1.0 / math.sqrt(embedding_size // 2)))
+        tf.truncated_normal([vocabulary_size, embedding_size ],
+                            stddev=1.0 / math.sqrt(embedding_size )))
     nce_char_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
     nce_train_weights = tf.Variable(
@@ -265,7 +265,7 @@ with graph.as_default():
                      labels=train_char_labels,
                      inputs=char_embed,
                      num_sampled=10,
-                     num_classes=char_vocabulary_size))
+                     num_classes=vocabulary_size))
 
   # Construct the SGD optimizer using a learning rate of 1.0.
   optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
