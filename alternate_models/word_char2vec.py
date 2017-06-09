@@ -358,7 +358,6 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
   init = tf.global_variables_initializer()
-  saver = tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -515,7 +514,6 @@ with tf.Session(graph=graph) as session:
       with open("./wordcharattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   
-  saver.save(session, 'word_char2vec.ckpt')
   
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()

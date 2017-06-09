@@ -288,8 +288,8 @@ with graph.as_default():
 
   character_word_embeddings = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
   with tf.variable_scope("lstm"):
-    lstm = tf.nn.rnn_cell.BasicLSTMCell(embedding_size//2)
-  revlstm = tf.nn.rnn_cell.BasicLSTMCell(embedding_size//2)
+    lstm = tf.nn.rnn_cell.LSTMCell(embedding_size//2)
+  revlstm = tf.nn.rnn_cell.LSTMCell(embedding_size//2)
   output_fwd = []
   output_bwd = []
   state_fwd = lstm.zero_state(batch_size, dtype=tf.float32)
