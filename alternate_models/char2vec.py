@@ -301,7 +301,6 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
-  saver =tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -321,7 +320,6 @@ with tf.Session(graph=graph) as session:
     final_char_embedding = normalized_char_embeddings.eval()
     np.save('./char2vec_just/word.npy',final_embeddings)
     np.save('./char2vec_just/char.npy',final_char_embedding)
-    saver.save(session, 'char2vec_just.ckpt')
 
     batch_char_inputs, batch_char_labels = generate_batch_char(
         char_batch_size, num_skips, skip_window)
