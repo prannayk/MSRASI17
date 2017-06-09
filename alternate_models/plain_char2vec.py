@@ -136,9 +136,12 @@ def generate_batch_train(batch_size, num_skips, skip_window):
   batch_chars = np.ndarray(shape=(batch_size, char_max_len),dtype=np.int32)
   span = 2 * skip_window + 1  # [ skip_window target skip_window ]
   l = batch_size // word_max_len
-  buffer_index = buffer_index + l % len(word_batch_list)
-  word_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len])
-  char_batch_list[buffer_index-l:buffer_index].reshape([l*word_max_len,char_max_len])
+  word_data = np.ndarray(shape=[l*word_max_len])
+  char_data = np.ndarray(shape=[l*word_max_len,char_max_len])
+  for i in range(l):
+   word_data[word_max_len*i:word_max_len*(i+1)] = word_batch_list[buffer_index]
+   char_data[word_max_len*i:word_max_len*(i+1)] = char_batch_list[buffer_index]
+   buffer_index = buffer_index + 1 % len(word_batch_list)
   buffer = collections.deque(maxlen=span)
   buffer_ = collections.deque(maxlen=span)
   for _ in range(span):
@@ -221,7 +224,7 @@ with graph.as_default():
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
     embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
-    lambda_2 = tf.Variable(tf.random_normal(stddev=1.0))
+    lambda_2 = tf.Variable(tf.random_normal([1],stddev=1.0))
 
     # Construct the variables for the NCE loss
     nce_weights = tf.Variable(
@@ -234,6 +237,10 @@ with graph.as_default():
                             stddev=1.0 / math.sqrt(embedding_size)))
     nce_char_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
+    nce_train_weights = tf.Variable(
+        tf.truncated_normal([vocabulary_size, embedding_size],
+                            stddev=1.0 / math.sqrt(embedding_size)))
+    nce_train_biases = tf.Variable(tf.zeros([vocabulary_size]))
     
   # Compute the average NCE loss for the batch.
   # tf.nce_loss automatically draws a new sample of the negative labels each
@@ -296,7 +303,8 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 500001
+#num_steps = 500001
+num_steps = 1
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -367,13 +375,11 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-        if len(tweet_embedding_val) % 1000 == 0 :
+        if len(tweet_embedding_val) % 10000 == 0 :
           print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t[0])
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
@@ -382,6 +388,7 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
+    if step == 0 : print("This is not your usual step")
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_word(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -435,8 +442,6 @@ with tf.Session(graph=graph) as session:
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t)
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
