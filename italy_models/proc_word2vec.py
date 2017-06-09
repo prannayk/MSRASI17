@@ -324,7 +324,7 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+        file_list.append('Italy-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./avg_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
