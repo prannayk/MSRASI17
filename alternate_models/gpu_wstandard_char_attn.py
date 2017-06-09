@@ -207,84 +207,72 @@ learning_rate = 5e-1
 with graph.as_default():
 
   # Input data.
-  train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
-  train_input_chars = tf.placeholder(tf.int32, shape=[char_batch_size])
-  train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
-  train_char_labels = tf.placeholder(tf.int32, shape=[char_batch_size, 1])
-  word_char_embeddings = tf.placeholder(tf.int32, shape=[batch_size,char_max_len])
-  valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
-  valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
-  query_ints = tf.constant(query_tokens, dtype=tf.int32)
-  # Ops and variables pinned to the CPU because of missing GPU implementation
-  tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
-  tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
-  with tf.device('/cpu:0'):
+  with tf.device('/gpu:0'):
+    train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
+    train_input_chars = tf.placeholder(tf.int32, shape=[char_batch_size])
+    train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
+    train_char_labels = tf.placeholder(tf.int32, shape=[char_batch_size, 1])
+    word_char_embeddings = tf.placeholder(tf.int32, shape=[batch_size,char_max_len])
+    valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
+    valid_char_dataset = tf.constant(valid_char_examples, dtype=tf.int32)
+    query_ints = tf.constant(query_tokens, dtype=tf.int32)
+    # Ops and variables pinned to the CPU because of missing GPU implementation
+    tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len])
+    tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len])
     # Look up embeddings for inputs.
-    embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
-    embed = tf.nn.embedding_lookup(embeddings, train_inputs)
     char_embed = tf.nn.embedding_lookup(char_embeddings,train_input_chars)
     lambda_2 = tf.Variable(tf.random_normal([1],stddev=1.0))
 
+    w1 = tf.Variable(tf.random_normal([embedding_size ,embedding_size // 4],stddev=1.0/math.sqrt(embedding_size)))
+    w2 = tf.Variable(tf.random_normal([embedding_size // 4,1],stddev=1.0/math.sqrt(embedding_size)))
+    weights = tf.stack([w1]*batch_size)
+    vvector = tf.stack([w2]*batch_size)
+    weights_tweet = tf.stack([w1]*tweet_batch_size*word_max_len)
+    vvector_tweet = tf.stack([w2]*tweet_batch_size*word_max_len)
     # Construct the variables for the NCE loss
-    nce_weights = tf.Variable(
-        tf.truncated_normal([vocabulary_size, embedding_size],
-                            stddev=1.0 / math.sqrt(embedding_size)))
-    nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
-    # character weights
     nce_char_weights = tf.Variable(
-        tf.truncated_normal([char_vocabulary_size, embedding_size],
-                            stddev=1.0 / math.sqrt(embedding_size)))
-    nce_char_biases = tf.Variable(tf.zeros([char_vocabulary_size]))
+        tf.truncated_normal([vocabulary_size, embedding_size ],
+                            stddev=1.0 / math.sqrt(embedding_size )))
+    nce_char_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
     nce_train_weights = tf.Variable(
-        tf.truncated_normal([vocabulary_size, embedding_size],stddev=1.0/math.sqrt(embedding_size)))
+        tf.truncated_normal([vocabulary_size, embedding_size],
+                            stddev=1.0 / math.sqrt(embedding_size)))
     nce_train_biases = tf.Variable(tf.zeros([vocabulary_size]))
-
     
   # Compute the average NCE loss for the batch.
   # tf.nce_loss automatically draws a new sample of the negative labels each
   # time we evaluate the loss.
-  loss = tf.reduce_mean(
-      tf.nn.nce_loss(weights=nce_weights,
-                     biases=nce_biases,
-                     labels=train_labels,
-                     inputs=embed,
-                     num_sampled=num_sampled,
-                     num_classes=vocabulary_size))
+    
 
-  loss_char = tf.reduce_mean(
-      tf.nn.nce_loss(weights=nce_char_weights,
-                     biases=nce_char_biases,
-                     labels=train_char_labels,
-                     inputs=char_embed,
-                     num_sampled=10,
-                     num_classes=char_vocabulary_size))
+    loss_char = tf.reduce_mean(
+        tf.nn.nce_loss(weights=nce_char_weights,
+                       biases=nce_char_biases,
+                       labels=train_char_labels,
+                       inputs=char_embed,
+                       num_sampled=10,
+                       num_classes=vocabulary_size))
 
-  # Construct the SGD optimizer using a learning rate of 1.0.
-  optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
-  optimizer_char = tf.train.AdamOptimizer(learning_rate /5).minimize(loss_char)
+    # Construct the SGD optimizer using a learning rate of 1.0.
+    optimizer_char = tf.train.AdamOptimizer(learning_rate /5).minimize(loss_char)
 
-  # Compute the cosine similarity between minibatch examples and all embeddings.
-  norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
-  normalized_embeddings = embeddings / norm
-  valid_embeddings = tf.nn.embedding_lookup(
-      normalized_embeddings, valid_dataset)
-  similarity = tf.matmul(
-      valid_embeddings, normalized_embeddings, transpose_b=True)
+    # Compute the cosine similarity between minibatch examples and all embeddings.
 
-  norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
-  normalized_char_embeddings = char_embeddings / norm_char
-  valid_embeddings_char = tf.nn.embedding_lookup(
-      normalized_char_embeddings, valid_char_dataset)
-  similarity_char = tf.matmul(
-      valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
+    norm_char = tf.sqrt(tf.reduce_sum(tf.square(char_embeddings), 1, keep_dims=True))
+    normalized_char_embeddings = char_embeddings / norm_char
+    valid_embeddings_char = tf.nn.embedding_lookup(
+        normalized_char_embeddings, valid_char_dataset)
+    similarity_char = tf.matmul(
+        valid_embeddings_char, normalized_char_embeddings, transpose_b=True)
 
-  character_word_embeddings = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings),axis=1)
-  # word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
-  final_embedding = character_word_embeddings
+    intermediate = tf.nn.embedding_lookup(normalized_char_embeddings, word_char_embeddings)
+    attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
+    output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
 
-  loss_char_train = tf.reduce_mean(
+    word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
+    final_embedding = lambda_2*word_embeddings + (1-lambda_2)*output
+    loss_char_train = tf.reduce_mean(
       tf.nn.nce_loss(weights=nce_train_weights,
                      biases=nce_train_biases,
                      labels=train_labels,
@@ -292,19 +280,21 @@ with graph.as_default():
                      num_sampled=64,
                      num_classes=vocabulary_size))
 
-  optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
+    optimizer_train = tf.train.AdamOptimizer(learning_rate/5).minimize(loss_char_train)
 
-  # tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
-  tweet_char_embed = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),axis=2)
-  tweet_embedding = tf.reduce_mean(tweet_char_embed,axis=1)
-  query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
-  query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
-  # Add variable initializer.
+    tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
+    intermediate = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size])
+    attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
+    tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
+    tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
+    query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
+    query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
+
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
 num_steps = 500001
-#num_steps = 
+# num_steps = 0
 num_steps_train = 500001
 
 with tf.Session(graph=graph) as session:
@@ -322,7 +312,6 @@ with tf.Session(graph=graph) as session:
 
     # We perform one update step by evaluating the optimizer op (including it
     # in the list of returned values for session.run()
-
     _, loss_char_val = session.run([optimizer_char, loss_char], feed_dict=feed_dict_char)
     average_char_loss += loss_char_val
 
@@ -335,23 +324,14 @@ with tf.Session(graph=graph) as session:
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
+      print("Average loss at step ", step, ": ", average_loss)
       print("Average character loss at step ", step, ": ", average_char_loss)
       average_loss = 0
       average_char_loss = 0
 
     # Note that this is expensive (~20% slowdown if computed every 500 steps)
     if step % 10000 == 0:
-      sim = similarity.eval()
       sim_char = similarity_char.eval()
-      for i in xrange(valid_size):
-        valid_word = reverse_dictionary[valid_examples[i]]
-        top_k = 8  # number of nearest neighbors
-        nearest = (-sim[i, :]).argsort()[1:top_k + 1]
-        log_str = "Nearest to %s:" % valid_word
-        for k in xrange(top_k):
-          close_word = reverse_dictionary[nearest[k]]
-          log_str = "%s %s," % (log_str, close_word)
-        print(log_str)
       for i in xrange(valid_char_size):
         valid_word = reverse_char_dictionary[valid_char_examples[i]]
         top_k = 8  # number of nearest neighbors
@@ -379,12 +359,17 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
       print("Written file")
   average_loss = 0
   for step in xrange(num_steps_train):
- 
+    final_embeddings = normalized_embeddings.eval()
+    final_char_embedding = normalized_char_embeddings.eval()
+    np.save('./wordcharattn/word.npy',final_embeddings)
+    np.save('./wordcharattn/char.npy',final_char_embedding)
+    if step % 100 == 0 and step > 0:
+      print(step)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -438,16 +423,18 @@ with tf.Session(graph=graph) as session:
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t[0])
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
-      print("Written file")
+
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./char2vec/word.npy',final_embeddings)
-  np.save('./char2vec/char.npy',final_char_embedding)
+  weight1 = w1.eval()
+  weight2 = w2.eval()
+  np.save('./std_char_attn/word.npy',final_embeddings)
+  np.save('./std_char_attn/char.npy',final_char_embedding)
+  np.save('./std_char_attn/weight1.npy',weight1)
+  np.save('./std_char_attn/weight2.npy',weight2)

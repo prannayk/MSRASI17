@@ -363,10 +363,6 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    final_embeddings = normalized_embeddings.eval()
-    final_char_embedding = normalized_char_embeddings.eval()
-    np.save('./wordcharattn/word.npy',final_embeddings)
-    np.save('./wordcharattn/char.npy',final_char_embedding)
     if step % 100 == 0 and step > 0:
       print(step)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
