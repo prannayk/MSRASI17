@@ -26,7 +26,7 @@ print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
-with open("data.npy") as fil:
+with open("italy/data.npy") as fil:
   t = fil.readlines()
 word_max_len, char_max_len = map(lambda x: int(x),t)
 
@@ -240,9 +240,9 @@ with graph.as_default():
 num_steps = 800001
 
 # loading tweet list in integer marking form
-word_batch_list = np.load("./word_embedding.npy")
-char_batch_list = np.load("./char_embedding.npy")
-with open("./tweet_ids.txt") as fil:
+word_batch_list = np.load("./italy/word_embedding.npy")
+char_batch_list = np.load("./italy/char_embedding.npy")
+with open("./italy/tweet_ids.txt") as fil:
   tweet_list = map(lambda y: filter(lambda x: x != '\n',y), fil.readlines())
 batch_list = dict()
 
@@ -315,20 +315,22 @@ with tf.Session(graph=graph) as session:
           tweet_char_holder : char_batch_list[t*tweet_batch_size:t*tweet_batch_size + tweet_batch_size]
         }
         l = session.run(query_similarity, feed_dict = feed_dict)
-	if len(tweet_embedding_val) % 1000 == 0 :
-	  print(len(tweet_embedding_val))
+        if len(tweet_embedding_val) % 10000 == 0 :
+          print(len(tweet_embedding_val))
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t)
+      
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./avg_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
+  np.save('./avg_char2vec/word.npy',final_embeddings)
+  np.save('./avg_char2vec/char.npy',final_char_embedding)
+  saver.save(session, "avg_char2vec.ckpt") 
 
