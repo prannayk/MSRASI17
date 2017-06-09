@@ -357,7 +357,7 @@ with graph.as_default():
     query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
     query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
-    init = tf.global_variables_initializer()
+  init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -449,6 +449,7 @@ with tf.Session(graph=graph) as session:
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
+      print("Written file")
   average_loss = 0
   for step in xrange(num_steps_train):
     final_embeddings = normalized_embeddings.eval()

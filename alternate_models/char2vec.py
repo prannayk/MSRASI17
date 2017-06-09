@@ -301,7 +301,6 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
   # Add variable initializer.
   init = tf.global_variables_initializer()
-  saver =tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -317,11 +316,6 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
-    final_embeddings = normalized_embeddings.eval()
-    final_char_embedding = normalized_char_embeddings.eval()
-    np.save('./char2vec_just/word.npy',final_embeddings)
-    np.save('./char2vec_just/char.npy',final_char_embedding)
-    saver.save(session, 'char2vec_just.ckpt')
 
     batch_char_inputs, batch_char_labels = generate_batch_char(
         char_batch_size, num_skips, skip_window)
@@ -342,7 +336,6 @@ with tf.Session(graph=graph) as session:
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
-      print("Average loss at step ", step, ": ", average_loss)
       print("Average character loss at step ", step, ": ", average_char_loss)
       average_loss = 0
       average_char_loss = 0
@@ -389,13 +382,9 @@ with tf.Session(graph=graph) as session:
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
+      print("Written file")
   average_loss = 0
   for step in xrange(num_steps_train):
-    final_embeddings = normalized_embeddings.eval()
-    final_char_embedding = normalized_char_embeddings.eval()
-    np.save('./char2vec_just/word.npy',final_embeddings)
-    np.save('./char2vec_just/char.npy',final_char_embedding)
-    saver.save(session, 'char2vec_just.ckpt')
  
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
@@ -458,7 +447,7 @@ with tf.Session(graph=graph) as session:
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
       with open("./char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
-
+      print("Written file")
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
   np.save('./char2vec/word.npy',final_embeddings)
