@@ -331,24 +331,24 @@ with graph.as_default():
 
   tweet_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tweet_word_holder)
   tweet_char_embeddings = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_char_holder),shape=[tweet_batch_size*word_max_len, char_max_len, embedding_size//2])
-  # output_fwd = []
-  # output_bwd = []
-  # state_fwd = lstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
-  # state_bwd = revlstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
-  # for l in range(char_max_len):
-  #   with tf.variable_scope(tf.get_variable_scope(),reuse=True):
-  #     with tf.variable_scope("lstm"):
-  #       cell_output_fwd, state_fwd = lstm(tweet_char_embeddings[:,l],state_fwd)
-  #     cell_output_bwd, state_bwd = revlstm(tweet_char_embeddings[:,l],state_bwd)
-  #   if l == 0: 
-  #     output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #   else:
-  #     with tf.variable_scope("lstm"):
-  #       cell_output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     cell_output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
-  #     output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
-  #     output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
+  output_fwd = []
+  output_bwd = []
+  state_fwd = lstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
+  state_bwd = revlstm.zero_state(tweet_batch_size*word_max_len, dtype=tf.float32)
+  for l in range(char_max_len):
+    with tf.variable_scope(tf.get_variable_scope(),reuse=True):
+      with tf.variable_scope("lstm"):
+        cell_output_fwd, state_fwd = lstm(tweet_char_embeddings[:,l],state_fwd)
+      cell_output_bwd, state_bwd = revlstm(tweet_char_embeddings[:,l],state_bwd)
+    if l == 0: 
+      output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+      output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+    else:
+      with tf.variable_scope("lstm"):
+        cell_output_fwd = tf.reshape(cell_output_fwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+      cell_output_bwd = tf.reshape(cell_output_bwd, shape=[tweet_batch_size*word_max_len,1,embedding_size//2])
+      output_fwd = tf.concat([output_fwd, cell_output_fwd],axis=1)
+      output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
   intermediate = tf.concat([output_bwd, output_fwd],axis=3)
   attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
@@ -358,7 +358,7 @@ with graph.as_default():
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
   init = tf.global_variables_initializer()
-  # saver = tf.train.Saver()
+  saver = tf.train.Saver()
 
 # Step 5: Begin training.
 num_steps = 500001
@@ -374,11 +374,6 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   average_char_loss = 0
   for step in xrange(num_steps):
-    # final_embeddings = normalized_embeddings.eval()
-    # final_char_embedding = normalized_char_embeddings.eval()
-    # np.save('./wordcharattn/word.npy',final_embeddings)
-    # np.save('./wordcharattn/char.npy',final_char_embedding)
-    # saver.save(session, 'word_charattn.ckpt')
     batch_inputs, batch_labels = generate_batch(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
@@ -440,11 +435,14 @@ with tf.Session(graph=graph) as session:
         l = session.run(query_similarity, feed_dict = feed_dict)
         if len(tweet_embedding_val) % 1000 == 0 :
           print(len(tweet_embedding_val))
+          if len(tweet_embedding_val) > 0:
+            print(stt - time.time())
+            # stt = time.tiem()
+          else:
+            stt = time.time()
         tweet_embedding_val += list(l) 
       tweet_embedding_dict = dict(zip(tweet_list, tweet_embedding_val))
       sorted_tweets = [i for i in sorted(tweet_embedding_dict.items(), key=lambda x: -x[1])]
-      for t in sorted_tweets[:100]:
-        print(t[0])
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
@@ -453,13 +451,6 @@ with tf.Session(graph=graph) as session:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
-    # final_embeddings = normalized_embeddings.eval()
-    # final_char_embedding = normalized_char_embeddings.eval()
-    # np.save('./wordcharattn/word.npy',final_embeddings)
-    # np.save('./wordcharattn/char.npy',final_char_embedding)
-    # saver.save(session,'word_charattn.ckpt')
-    if step % 100 == 0 and step > 0:
-      print(step)
     batch_inputs, batch_char_inputs, batch_labels = generate_batch_train(
         batch_size, num_skips, skip_window)
     feed_dict = {train_inputs: batch_inputs, word_char_embeddings : batch_char_inputs, train_labels: batch_labels,}
@@ -467,11 +458,11 @@ with tf.Session(graph=graph) as session:
     _, loss_train_val = session.run([optimizer_train, loss_char_train], feed_dict=feed_dict)
     average_loss += loss_train_val
 
-    if step % 2000 == 0:
+    if step % 100 == 0:
       if step > 0:
         print(time.time()- start_time)
         start_time = time.time()
-        average_loss /= 2000
+        average_loss /= 100
       else:
         start_time = time.time()
       # The average loss is an estimate of the loss over the last 2000 batches.
@@ -524,3 +515,4 @@ with tf.Session(graph=graph) as session:
   final_char_embedding = normalized_char_embeddings.eval()
   np.save('./wcattn/word.npy',final_embeddings)
   np.save('./wcattn/char.npy',final_char_embedding)
+  saver.save(session, "wcattn.ckpt")
