@@ -196,7 +196,7 @@ valid_char_examples = np.random.choice(valid_char_window, valid_char_size, repla
 valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
 char_batch_size = 64
-query_tokens = map(lambda x: dictionary[x],['nee','requir'])
+query_tokens = map(lambda x: dictionary[x],['send','distribut','avail'])
 tweet_batch_size = 50
 lambda_1 = 0.7
 # word_max_len
@@ -336,7 +336,7 @@ with tf.Session(graph=graph) as session:
 
     if step % 2000 == 0:
       if step > 0:
-        print("Running plain plain_char2vec")
+        print("Running plain avail_plain_char2vec")
         print(time.time()- start_time)
         start_time = time.time()
         average_loss /= 2000
@@ -388,7 +388,7 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./avail_plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
@@ -451,11 +451,11 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./avail_plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./plain_char2vec/word.npy',final_embeddings)
-  np.save('./plain_char2vec/char.npy',final_char_embedding)
-  saver.save(session, 'plain2_char2vec.ckpt')
+  np.save('./avail_plain_char2vec/word.npy',final_embeddings)
+  np.save('./avail_plain_char2vec/char.npy',final_char_embedding)
+  saver.save(session, 'plain_avail_char2vec.ckpt')

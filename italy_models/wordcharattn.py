@@ -20,13 +20,13 @@ def read_data(filename):
     data = f.read()
     data_chars = list(set(data))
   return data.split(),data_chars,data
-filename = './nepal/corpus.txt'
+filename = './italy/corpus.txt'
 words,chars,character_data = read_data(filename)
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
-with open("./nepal/data.npy") as fil:
+with open("./italy/data.npy") as fil:
   t = fil.readlines()
 word_max_len, char_max_len = map(lambda x: int(x),t)
 
@@ -67,9 +67,9 @@ data_index = 0
 char_data_index = 0
 
 # loading tweet list in integer marking form
-word_batch_list = np.load("./nepal/word_embedding.npy")
-char_batch_list = np.load("./nepal/char_embedding.npy")
-with open("./nepal/tweet_ids.txt") as fil:
+word_batch_list = np.load("./italy/word_embedding.npy")
+char_batch_list = np.load("./italy/char_embedding.npy")
+with open("./italy/tweet_ids.txt") as fil:
   tweet_list = map(lambda y: filter(lambda x: x != '\n',y), fil.readlines())
 batch_list = dict()
 
@@ -312,8 +312,8 @@ with graph.as_default():
       output_bwd = tf.reshape(cell_output_bwd, shape=[batch_size,1,embedding_size//2])
 
   intermediate = tf.concat([output_bwd, output_fwd],axis=2)
-  attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True))
-  output = tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size])
+  attention = tf.nn.softmax(tf.matmul(vvector, tf.nn.tanh(tf.matmul(intermediate,weights)),transpose_a=True,transpose_b=True))
+  output = tf.nn.l2_normalize(tf.reshape(tf.matmul(attention,intermediate),shape=[batch_size,embedding_size]),dim=1)
 
   word_embeddings = tf.nn.embedding_lookup(normalized_embeddings, train_inputs)
   final_embedding = lambda_2*word_embeddings + (1-lambda_2)*output
@@ -351,9 +351,9 @@ with graph.as_default():
       output_bwd = tf.concat([cell_output_bwd, output_bwd],axis=1)
 
   intermediate = tf.concat([output_bwd, output_fwd],axis=2)
-  attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True))
+  attention = tf.nn.softmax(tf.matmul(vvector_tweet, tf.nn.tanh(tf.matmul(intermediate,weights_tweet)),transpose_a=True,transpose_b=True))
   tweet_char_embed = tf.reshape(tf.matmul(attention,intermediate),shape=[tweet_batch_size,word_max_len,embedding_size])
-  tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
+  tweet_embedding = tf.nn.l2_normalize(tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1),dim=1)
   query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_tokens),axis=0),shape=[1,embedding_size])
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
 
@@ -445,8 +445,8 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+        file_list.append('Italy-Avail 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+      with open("./avail_wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
@@ -506,12 +506,12 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+        file_list.append('Italy-Avail 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+      with open("./avail_wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./wcattn/word.npy',final_embeddings)
-  np.save('./wcattn/char.npy',final_char_embedding)
-  saver.save(session, "wcattn.ckpt")
+  np.save('./avail_wcattn/word.npy',final_embeddings)
+  np.save('./avail_wcattn/char.npy',final_char_embedding)
+  saver.save(session, "avail_wcattn.ckpt")

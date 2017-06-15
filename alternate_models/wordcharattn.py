@@ -196,7 +196,7 @@ valid_char_examples = np.random.choice(valid_char_window, valid_char_size, repla
 valid_examples[0] = dictionary['nee']
 num_sampled = 64    # Number of negative examples to sample.
 char_batch_size = 64
-query_tokens = map(lambda x: dictionary[x],['nee','requir'])
+query_tokens = map(lambda x: dictionary[x],['avail','send','distribut'])
 tweet_batch_size = 10
 lambda_1 = 0.7
 # word_max_len
@@ -445,8 +445,8 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+        file_list.append('Nepal-Avail 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+      with open("./avail_wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
@@ -506,12 +506,12 @@ with tf.Session(graph=graph) as session:
       count += 1
       file_list = []
       for i in range(len(sorted_tweets)):
-        file_list.append('Nepal-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
+        file_list.append('Nepal-Avail 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
+      with open("./avail_wcattn/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./wcattn/word.npy',final_embeddings)
-  np.save('./wcattn/char.npy',final_char_embedding)
-  saver.save(session, "wcattn.ckpt")
+  np.save('./avail_wcattn/word.npy',final_embeddings)
+  np.save('./avail_wcattn/char.npy',final_char_embedding)
+  saver.save(session, "avail_wcattn.ckpt")

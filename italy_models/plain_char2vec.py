@@ -336,7 +336,7 @@ with tf.Session(graph=graph) as session:
 
     if step % 2000 == 0:
       if step > 0:
-        print("Running plain plain_char2vec")
+        print("Running plain plain_avail_char2vec")
         print(time.time()- start_time)
         start_time = time.time()
         average_loss /= 2000
@@ -388,7 +388,7 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('Italy-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./plain_avail_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
   average_loss = 0
   for step in xrange(num_steps_train):
@@ -451,11 +451,11 @@ with tf.Session(graph=graph) as session:
       file_list = []
       for i in range(len(sorted_tweets)):
         file_list.append('italy-Need 0 %s %d %f running'%(sorted_tweets[i][0],i+1,sorted_tweets[i][1]))
-      with open("./plain_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
+      with open("./plain_avail_char2vec/tweet_list_%d.txt"%(count),mode="w") as fw:
         fw.write('\n'.join(map(lambda x: str(x),file_list)))
 
   final_embeddings = normalized_embeddings.eval()
   final_char_embedding = normalized_char_embeddings.eval()
-  np.save('./plain_char2vec/word.npy',final_embeddings)
-  np.save('./plain_char2vec/char.npy',final_char_embedding)
-  saver.save(session, 'plain2_char2vec.ckpt')
+  np.save('./plain_avail_char2vec/word.npy',final_embeddings)
+  np.save('./plain_avail_char2vec/char.npy',final_char_embedding)
+  saver.save(session, 'plain_avail_char2vec.ckpt')

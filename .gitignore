@@ -20,3 +20,13 @@ tweet_list_*
 alternate_models/nepa*
 word_char2vec*
 word_charatt*
+*.result.nepal.txt
+*.nepal.result.*
+*.resul.italy.txt
+*.ckpt
+*.ckpt.index
+*.ckpt.meta
+*.result.text
+*.ckpt.data-*
+*.rxt
+
