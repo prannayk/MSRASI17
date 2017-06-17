@@ -27,3 +27,4 @@ word_charatt*
 *_model.*
 *.rxt
 *.result.*
+.pyc
