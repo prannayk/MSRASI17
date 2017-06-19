@@ -11,8 +11,8 @@ from expand_query import *
 from argument_loader import *
 	
 def setup(char_dictionary, dictionary, query_type):	
-    batch_size = 1024
-    embedding_size = 128  # Dimension of the embedding vector.
+    batch_size = 4096
+    embedding_size = 256  # Dimension of the embedding vector.
     skip_window = 2       # How many words to consider left and right.
     num_skips = 2         # How many times to reuse an input to generate a label.
     skip_char_window = 2
@@ -30,7 +30,7 @@ def setup(char_dictionary, dictionary, query_type):
     valid_examples[0][0] = dictionary['nee']
     valid_examples[0][1] = dictionary['avail']
     num_sampled = 64    # Number of negative examples to sample.
-    char_batch_size = 1024
+    char_batch_size = 4096
     if query_type == 0 :
         query_tokens = map(lambda x: dictionary[x],['nee','requir'])
         query_tokens_alternate = map(lambda x: dictionary[x],['avail','send','distribut'])

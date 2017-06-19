@@ -161,9 +161,9 @@ with graph.as_default():
   tweet_embedding = tf.reduce_mean(lambda_1*tweet_word_embed + (1-lambda_1)*tweet_char_embed,axis=1)
   # query embeddings
   query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,query_ints),axis=0),shape=[1,embedding_size])
-  expanded_query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,expanded_query_ints),axis=0),shape=[1,embedding_size])
+  expanded_query_embedding = tf.reshape(tf.reduce_mean(tf.nn.embedding_lookup(normalized_embeddings,expanded_query_ints),axis=0),shape=[1,embedding_size],name="similarity_normal")
   query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
-  expanded_query_similarity = tf.reshape(tf.matmul(tweet_embedding, expanded_query_embedding, transpose_b=True),shape=[tweet_batch_size])
+  expanded_query_similarity = tf.reshape(tf.matmul(tweet_embedding, expanded_query_embedding, transpose_b=True),shape=[tweet_batch_size],name="similarity_expanded")
   # tweet level query : for matching / extraction
   tquery_word_embed = tf.nn.embedding_lookup(normalized_embeddings, tquery_word_holder)
   tquery_char_embeddings = tf.reshape(tf.nn.embedding_lookup(normalized_char_embeddings, tquery_char_holder),shape=[word_max_len, char_max_len, embedding_size//2])
@@ -206,8 +206,8 @@ with tf.Session(graph=graph) as session:
   placeholders = [[train_inputs,train_labels],[train_input_chars,train_char_labels]]
   losses = [loss, loss_char]
   optimizers = [optimizer, optimizer_char]
-  interval1 = 2000
-  interval2 = 10000
+  interval1 = 400
+  interval2 = 1000
   datas = [data,char_data]
   data_index = [data_index, char_data_index, buffer_index]
   reverse_dictionaries = [reverse_dictionary, reverse_char_dictionary]
