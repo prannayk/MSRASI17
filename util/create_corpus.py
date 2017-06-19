@@ -10,7 +10,11 @@ from nltk.stem.lancaster import LancasterStemmer
 from nltk.corpus import stopwords
 
 args = sys.argv
-dataset = args[1]
+if len(args) == 1:
+	dataset = 'nepal'
+	dataset2 = 'italy'
+else: 
+	dataset = args[1]
 
 tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
 st = LancasterStemmer()
@@ -38,6 +42,9 @@ def filter_fn(x):
 print("Loading tweets")
 f = open('../dataset/%s.jsonl'%(dataset))
 text = f.readlines()
+if len(args) == 1:
+	f = open('../dataset/%s.jsonl'%(dataset2))
+	text += f.readlines()
 corpus = dict()
 corpus_file = list()
 count = 0
@@ -137,11 +144,11 @@ for i in range(len(corpus)):
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
 	word_list[i] = word_markers[0]
 	char_list[i] = char_markers[0]
-np.save('../data/%s/word_embedding.npy'%(dataset),word_list)
-np.save('../data/%s/char_embedding.npy'%(dataset),char_list)
+np.save('../data/word_embedding.npy'%(dataset),word_list)
+np.save('../data/char_embedding.npy'%(dataset),char_list)
 l = map(lambda x: str(x), corpus.keys())
-with open("../data/%s/tweet_ids.txt"%(dataset),mode="w") as fil:
+with open("../data/tweet_ids.txt"%(dataset),mode="w") as fil:
 	fil.write('\n'.join(l))
 print_list = [str(word_max_len),str(char_max_len)]
-with open('../data/%s/data.npy'%(dataset),mode="w") as fil:
+with open('../data/data.npy'%(dataset),mode="w") as fil:
 	fil.write('\n'.join(print_list))
