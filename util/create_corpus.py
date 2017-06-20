@@ -144,11 +144,13 @@ for i in range(len(corpus)):
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
 	word_list[i] = word_markers[0]
 	char_list[i] = char_markers[0]
-np.save('../data/word_embedding.npy'%(dataset),word_list)
-np.save('../data/char_embedding.npy'%(dataset),char_list)
+if len(args) == 1:
+    dataset = ""
+np.save('../data/%s/word_embedding.npy'%(dataset),word_list)
+np.save('../data/%s/char_embedding.npy'%(dataset),char_list)
 l = map(lambda x: str(x), corpus.keys())
-with open("../data/tweet_ids.txt"%(dataset),mode="w") as fil:
+with open("../data/%s/tweet_ids.txt"%(dataset),mode="w") as fil:
 	fil.write('\n'.join(l))
 print_list = [str(word_max_len),str(char_max_len)]
-with open('../data/data.npy'%(dataset),mode="w") as fil:
+with open('../data/%s/data.npy'%(dataset),mode="w") as fil:
 	fil.write('\n'.join(print_list))

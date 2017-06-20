@@ -124,8 +124,8 @@ with graph.as_default():
     query_similarity = tf.reshape(tf.matmul(tweet_embedding, query_embedding, transpose_b=True),shape=[tweet_batch_size])
     expanded_query_similarity = tf.reshape(tf.matmul(tweet_embedding, expanded_query_embedding, transpose_b=True),shape=[tweet_batch_size])
     
-    tweet_query_char = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tweet_query_char_holder),axis=1)
-    tweet_query_word = tf.nn.embedding_lookup(normalized_embeddings, tweet_query_word_holder)
+    tweet_query_char = tf.reduce_mean(tf.nn.embedding_lookup(normalized_char_embeddings, tquery_char_holder),axis=1)
+    tweet_query_word = tf.nn.embedding_lookup(normalized_embeddings, tquery_word_holder)
     tquery_embedding = tf.reshape(tf.reduce_mean(lambda_1*tweet_query_word + lambda_1*tweet_query_char,axis=0), shape=[1, embedding_size])
 
     norm_query = tf.sqrt(tf.reduce_sum(tf.square(tquery_embedding), 1, keep_dims=True))
