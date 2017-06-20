@@ -59,18 +59,26 @@ for line in text:
 		word_max_len = len(corpus[tweet['id']])
 	corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
-dataset = ""
+if len(args) == 1:
+    dataset = ""
 with open('../data/%s/corpus.txt'%(dataset),mode="w") as fil:
 	fil.write(file)
 print("Written corpus to file")
-
-words = file.split()
+if len(args) > 1:
+    print("Using everything")
+    with open("../data/corpus.txt",mode="r") as fil:
+        text = '\n'.join(fil.readlines())
+else:
+    text = file
+print(len(file))
+print(len(text))
+words = text.split()
 chars = list(set(file))
 character_data = file
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
-vocabulary_size = 50000
+vocabulary_size = 100000
 
 
 def build_dataset(words, vocabulary_size):
@@ -145,8 +153,6 @@ for i in range(len(corpus)):
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
 	word_list[i] = word_markers[0]
 	char_list[i] = char_markers[0]
-if len(args) == 1:
-    dataset = ""
 np.save('../data/%s/word_embedding.npy'%(dataset),word_list)
 np.save('../data/%s/char_embedding.npy'%(dataset),char_list)
 l = map(lambda x: str(x), corpus.keys())

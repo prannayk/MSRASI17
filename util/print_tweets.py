@@ -53,8 +53,8 @@ def print_tweets(dataset, query_similarity, query_tokens, query_token_holder, qu
 
   with open("%stweet_list_%d.txt"%(folder_name,count),mode="w") as fw:
     fw.write('\n'.join(map(lambda x: str(x),file_list)))
+  print("%stweet_list_%d.txt"%(folder_name,count))
   return count
-
 def standard_print_fn(filename, step, average_loss, start, density, count):
   print("Running %s at %d where the average_loss is : %f"%(filename, step, average_loss/density))
   print("Time taken for said iteration was: %f.2"%(time.time()-start))
