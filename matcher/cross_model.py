@@ -25,7 +25,7 @@ from expand_query import *
 from argument_loader import *
 from setup import *
 
-dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expand_flag,lr_, matchname, counter = import_arguments(sys.argv)
+dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expand_flag,lr_, matchname = import_arguments(sys.argv)
 if dataset == 'nepal' :
   alt_dataset = 'italy'
 else :
@@ -34,7 +34,7 @@ else :
 # Read the data into a list of strings.
 # import data
 char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
-alt_char_batch_dict, alt_word_batch_dict,data, alt_count, alt_dictionary, alt_reverse_dictionary, alt_word_max_len, alt_char_max_len, alt_vocabulary_size, alt_char_dictionary, alt_reverse_char_dictionary, alt_data_index, alt_char_data_index, alt_buffer_index, alt_batch_list, alt_char_batch_list, alt_word_batch_list, alt_char_data = build_everything(alt_dataset)
+alt_char_batch_dict, alt_word_batch_dict,alt_data, alt_count, alt_dictionary, alt_reverse_dictionary, alt_word_max_len, alt_char_max_len, alt_vocabulary_size, alt_char_dictionary, alt_reverse_char_dictionary, alt_data_index, alt_char_data_index, alt_buffer_index, alt_batch_list, alt_char_batch_list, alt_word_batch_list, alt_char_data = build_everything(alt_dataset)
 
 
 data_index, batch, labels = generate_batch(alt_data, alt_data_index, batch_size=8, num_skips=2, skip_window=1,)
@@ -46,7 +46,7 @@ for i in range(8):
   print(batch[i], reverse_char_dictionary[batch[i]],
         '->', labels[i, 0], reverse_char_dictionary[labels[i, 0]])
 
-lambda_1, tweet_batch_size, expand_start_count, query_name, query_tokens, query_tokens_alternate, char_batch_size, num_sampled, valid_examples, valid_window, valid_size, skip_window, num_skips, embedding_size, char_vocabulary_size, batch_size, num_char_skips, skip_char_window = setup(alt_char_dictionary, alt_dictionary, alt_query_type)
+lambda_1, tweet_batch_size, expand_start_count, query_name, query_tokens, query_tokens_alternate, char_batch_size, num_sampled, valid_examples, valid_window, valid_size, skip_window, num_skips, embedding_size, char_vocabulary_size, batch_size, num_char_skips, skip_char_window = setup(alt_char_dictionary, alt_dictionary, query_type)
 
 learning_rate = lr_
 
