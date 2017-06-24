@@ -44,5 +44,5 @@ def train_model(session, dataset,query_similarity, query_tokens, query_token_hol
             for t in range(len(similarities)):
                 sim = similarities[t].eval()
                 rank_tokens(valid_examples[t],valid_size[t], reverse_dictionary[t], 8,sim)
-            count_ = print_tweets(dataset, query_similarity, query_tokens, query_token_holder, query_name, session, word_batch_list, char_batch_list, tweet_word_holder, tweet_char_holder, count_, tweet_batch_size, filename, both_flag)
+            count_ = print_tweets(dataset, query_similarity, query_tokens, query_token_holder, query_name, session, word_batch_list, char_batch_list, tweet_word_holder, tweet_char_holder, count_, tweet_batch_size, filename, False, 25,both_flag)
     return count_

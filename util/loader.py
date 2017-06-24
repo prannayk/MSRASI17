@@ -31,7 +31,7 @@ def build_dataset(words, smaller_words, vocabulary_size,dataset):
 
 word_batch_dict = dict()
 char_batch_dict = dict()
-def build_everything(dataset):
+def build_everything(dataset, consider=False, consider_set=None):
   global word_batch_dict, char_batch_dict
   vocabulary_size = 100000
   with open("../data/%s/data.npy"%(dataset)) as fil:
@@ -67,6 +67,16 @@ def build_everything(dataset):
     tweet_list = map(lambda x: filter(lambda y: y != '\n', x), fil.readlines())
   word_batch_dict = dict(zip(tweet_list, word_batch_list))
   char_batch_dict = dict(zip(tweet_list, char_batch_list))
+  if consider :
+    if consider_set == "nepal" : 
+      string = int("5")
+    else:
+      string = int("7")
+    for t in word_batch_dict.keys():
+      if int(t[0]) == string:
+        del word_batch_dict[t]
+        del char_batch_dict[t]
+
   batch_list = dict()
   buffer_index = 1
   return char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data
