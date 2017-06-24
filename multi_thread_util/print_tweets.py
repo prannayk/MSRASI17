@@ -4,7 +4,7 @@ import numpy as np
 sorted_tweets = []
 tweet_count = 0
 tweet_list = []
-def print_tweets(dataset, query_similarity, query_tokens, query_token_holder, query_name, session, word_batch_list, char_batch_list, tweet_word_holder, tweet_char_holder, count, tweet_batch_size, filename, flag=False, break_counter=25):
+def print_tweets(dataset, query_similarity, query_tokens, query_token_holder, query_name, session, word_batch_list, char_batch_list, tweet_word_holder, tweet_char_holder, count, tweet_batch_size, filename, flag=False, break_counter=25, query_tokens_alternate):
   global sorted_tweets, tweet_count
   if tweet_list == []:
     load_tweet(dataset)

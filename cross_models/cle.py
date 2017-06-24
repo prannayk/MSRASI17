@@ -29,8 +29,8 @@ from LSTM import *
 # load arguements
 dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expand_flag,lr_, matchname = import_arguments(sys.argv)
 # load data
-char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
-
+char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything("nepal")
+char_batch_dict_alt, word_batch_dict_alt, data, _, _, _, word_max_len_alt, char_max_len_alt, _, char_dictionary_alt, reverse_char_dictionary_alt, data_index_alt, char_data_index_alt, buffer_index_alt, batch_list_alt, char_batch_list_alt, word_batch_list_alt, char_data_alt = build_everything("n'")
 # test the data
 data_index, batch, labels = generate_batch(data, data_index, batch_size=8, num_skips=2, skip_window=1,)
 for i in range(8):
