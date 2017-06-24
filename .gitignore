@@ -29,3 +29,5 @@ word_charatt*
 *.result.*
 *.pyc
 models/*.sh
+results/W*
+compate/compare_*
