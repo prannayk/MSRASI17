@@ -12,7 +12,7 @@ from argument_loader import *
 	
 def setup(char_dictionary, dictionary, query_type):	
     batch_size = 256
-    embedding_size = 256  # Dimension of the embedding vector.
+    embedding_size = 128  # Dimension of the embedding vector.
     skip_window = 2       # How many words to consider left and right.
     num_skips = 2         # How many times to reuse an input to generate a label.
     skip_char_window = 2

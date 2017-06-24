@@ -52,6 +52,7 @@ learning_rate = lr_
 
 expand_count = 3
 need_tweet_list , avail_tweet_list = na_loader(alt_dataset, query_name)
+print("Loaded alternate")
 saver = tf.train.import_meta_graph('../results/%s/%s/%s_model.ckpt.meta'%(dataset, query_name, filename))
 print("Loaded graph")
 graph = tf.get_default_graph()
@@ -65,6 +66,7 @@ with tf.Session(graph=graph) as session:
   tweet_word_holder = graph.get_tensor_by_name('tweet_word_holder:0')
   tweet_char_holder = graph.get_tensor_by_name('tweet_char_holder:0')
   for query_tweet in need_tweet_list:
+    print("running")
     count = print_tweets(alt_dataset, tweet_similarity, query_tweet, query_tweet_holder, query_name, session, avail_tweet_list, alt_char_batch_list, tweet_word_holder, tweet_char_holder, count ,tweet_batch_size, "%s_%s"%(filename, matchname), True, counter)
     if count % 25 == 0: print("Completed for %d need tweets, saved as avail list"%(count))
 

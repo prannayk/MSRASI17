@@ -27,4 +27,7 @@ word_charatt*
 *_model.*
 *.rxt
 *.result.*
-.pyc
+*.pyc
+models/*.sh
+results/W*
+compate/compare_*

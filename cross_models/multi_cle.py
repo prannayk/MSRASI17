@@ -19,7 +19,7 @@ from generators import *
 from loader import *
 from print_tweets import *
 from similar_tokens import * 
-from training import *
+from training_multi import *
 from similar_tokens import *
 from expand_query import *
 from argument_loader import *
@@ -65,7 +65,7 @@ with graph.as_default():
   # Ops and variables pinned to the CPU because of missing GPU implementation
   tweet_char_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size,word_max_len,char_max_len],name="tweet_char_holder")
   tweet_word_holder = tf.placeholder(tf.int32, shape=[tweet_batch_size, word_max_len],name="tweet_word_holder")
-  with tf.device('/gpu:0'):
+  with tf.device('/cpu:0'):
     # Look up embeddings for inputs.
     embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
     char_embeddings = tf.Variable(tf.random_uniform([char_vocabulary_size, embedding_size],-1.0,1.0))
@@ -157,6 +157,7 @@ with graph.as_default():
 
   # Add variable initializer.
   init = tf.global_variables_initializer()
+  saver = tf.train.Saver()
 # loading tweet list in integer marking form
 # load more data
 expand_count = 3
@@ -171,7 +172,7 @@ with tf.Session(graph=graph) as session:
   placeholders = [[train_inputs,train_labels],[train_input_chars,train_char_labels]]
   losses = [loss, loss_char]
   optimizers = [optimizer, optimizer_char]
-  interval1 = 400
+  interval1 = 800
   interval2 = 4000
   datas = [data,char_data]
   data_index = [data_index, char_data_index, buffer_index]
