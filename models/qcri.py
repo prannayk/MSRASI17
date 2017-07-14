@@ -11,6 +11,7 @@ from nltk.corpus import stopwords
 from gensim.models import KeyedVectors
 
 dataset = "complete"
+dataset2 = "italy"
 
 tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
 st = LancasterStemmer()
@@ -25,22 +26,19 @@ query_tokens = map(lambda x: st.stem(x),query_words)
 char_max_len = 0
 
 def filter_fn(x):
-    global char_max_len1
-	p1 = re.sub('[%s]+'%(punctuation),' ',x)
-	p2 = filter(lambda x: x in printable, p1)
-	y = map(lambda x: st.stem(x).lower(), tknzr.tokenize(p2))
-	final = filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
-	for token in final:
-		if len(token) > char_max_len:
-			char_max_len = len(token)
-	return final
+    global char_max_len
+    p1 = re.sub('[%s]+'%(punctuation),' ',x)
+    p2 = filter(lambda x: x in printable, p1)
+    y = map(lambda x: st.stem(x).lower(), tknzr.tokenize(p2))
+    final = filter(lambda x: not x in stoplist and not x == '' and not len(x) == 1 and not 'www' in x and not 'http' in x,y)
+    for token in final:
+        if len(token) > char_max_len:
+            char_max_len = len(token)
+    return final
 
 print("Loading tweets")
 f = open('../dataset/%s.jsonl'%(dataset))
 text = f.readlines()
-if len(args) == 1:
-	f = open('../dataset/%s.jsonl'%(dataset2))
-	text += f.readlines()
 corpus = dict()
 corpus_file = list()
 count = 0
@@ -66,8 +64,9 @@ def embed(x):
 	else:
 		return en_model['unk']
 
-tweet_stuff = np.array(map(lambda x: map(embed,filter(lambda y: y!= '\n',x).split()),tweets.values()))
-print(tweet_stuff.values().shape)
+# tweet_stuff = np.array(map(lambda x: map(lambda z: embed(filter(lambda y: y!= '\n',z),x),tweets.values()))
+tweet_stuff = np.array(map(lambda x: np.array(map(embed, ''.join(filter(lambda y: y!='\n',x)).split())),tweets.values()))
+print(tweet_stuff.shape)
 tweet_embed = np.mean(tweet_stuff,axis=1)
 print(tweet_embed.shape)
 
