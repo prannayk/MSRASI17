@@ -33,7 +33,7 @@ def filter_fn(x):
 	return final
 
 print("Loading tweets")
-f = open('../dataset/%s.jsonl'%(dataset))
+f = open('/media/hdd/hdd/data_backup/tweets.txt')
 text = f.readlines()
 corpus = dict()
 corpus_file = list()
@@ -41,7 +41,7 @@ count = 0
 word_max_len = 0
 for line in text:
 	count += 1
-	if count % 1000 == 0:
+	if count % 10000 == 0:
 		print(count)
 	tweet = {
 		'id' : line.split("\t")[0],
@@ -52,17 +52,10 @@ for line in text:
 		word_max_len = len(corpus[tweet['id']])
 	corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
-if len(args) == 1:
-    dataset = ""
-with open('../data/%s/corpus.txt'%(dataset),mode="w") as fil:
+with open('../data/trec_corpus.txt',mode="w") as fil:
 	fil.write(file)
 print("Written corpus to file")
-if len(args) > 1:
-    print("Using everything")
-    with open("../data/corpus.txt",mode="r") as fil:
-        text = '\n'.join(fil.readlines())
-else:
-    text = file
+text=file
 print(len(file))
 print(len(text))
 words = text.split()
@@ -141,16 +134,16 @@ word_list = np.ndarray(shape=[total_size, word_max_len],dtype=np.int32)
 char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.int32)
 
 for i in range(len(corpus)):
-	if i % 1000 == 0 and i > 0:
+	if i % 10000 == 0 and i > 0:
 		print(i)
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
 	word_list[i] = word_markers[0]
 	char_list[i] = char_markers[0]
-np.save('../data/%s/word_embedding.npy'%(dataset),word_list)
-np.save('../data/%s/char_embedding.npy'%(dataset),char_list)
+np.save('../data/trec/word_embedding.npy',word_list)
+np.save('../data/trec/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
-with open("../data/%s/tweet_ids.txt"%(dataset),mode="w") as fil:
+with open("../data/trec/tweet_ids.txt",mode="w") as fil:
 	fil.write('\n'.join(l))
 print_list = [str(word_max_len),str(char_max_len)]
-with open('../data/%s/data.npy'%(dataset),mode="w") as fil:
+with open('../data/trec/data.npy',mode="w") as fil:
 	fil.write('\n'.join(print_list))
