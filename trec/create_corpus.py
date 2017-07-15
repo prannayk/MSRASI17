@@ -43,14 +43,15 @@ for line in text:
 	count += 1
 	if count % 10000 == 0:
 		print(count)
-	tweet = {
-		'id' : line.split("\t")[0],
-		'text' : line.split("\t")[1]
-	}
-	corpus[tweet['id']] = filter_fn(tweet['text'])
-	if len(corpus[tweet['id']]) > word_max_len:
-		word_max_len = len(corpus[tweet['id']])
-	corpus_file += corpus[tweet['id']]
+	if len(line.split("\t")) > 1:
+		tweet = {
+			'id' : line.split("\t")[0],
+			'text' : line.split("\t")[1]
+		}
+		corpus[tweet['id']] = filter_fn(tweet['text'])
+		if len(corpus[tweet['id']]) > word_max_len:
+			word_max_len = len(corpus[tweet['id']])
+		corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
 with open('../data/trec_corpus.txt',mode="w") as fil:
 	fil.write(file)
