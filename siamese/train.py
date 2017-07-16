@@ -9,7 +9,12 @@ import time
 import os
 import sys
 
-graph = tf.Graph()
-with graph.as_default():
+initializer_main = tf.random_normal_initializer(stddev=0.02)
 
-	train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
+class ConvSiamese():
+	def __init__(self, embedding_size):
+		self.embedding_size = embedding_size
+
+	def convolve(self, input, scope):
+		
+		
