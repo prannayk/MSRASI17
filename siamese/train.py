@@ -22,7 +22,7 @@ class ConvSiamese():
 			mean, vari = tf.nn.moments(X, [0,1,2], keep_dims=True)
 		return tf.nn.batch_normalization(X, mean, vari, offset=None, 
 			scale=None, variance_epsilon=1e-6, name=name)
-	def convolve(self, word_embed, scope):
+	def convolve_word(self, word_embed, scope):
 		word_embed_reshape = tf.reshape(word_embed, shape=[self.batch_size
 			self.word_max_len, 1, self.embedding_size])
 		h1 = tf.layers.conv2d(word_embed_reshape, filters=128, 
@@ -66,4 +66,13 @@ class ConvSiamese():
 				else:
 					output = output_state
 		return output
-	def attention_over_sequence
+	def attention_over_sequence(self, word_embed, flag=True):
+		h1 = tf.layers.dense(word_embed, units=self.embedding_size // 2, 
+			activation=tf.tanh, kernel_initializer=self.initializer, 
+			use_bias=True,
+			name="dense_1", reuse=scope.reuse)
+		h1_norm = self.normalize(h1)
+		h2 = tf.layers.dense(h1_norm, units=1, activation=None,
+			kernel_initializer=self.initializer, use_bias=True, 
+			name="dense_2", reuse=scope.reuse)
+		h2_reshape = tf.reshape(h2, shape=[self.batch_size, self.word_max_len])
