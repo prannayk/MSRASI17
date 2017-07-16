@@ -34,27 +34,27 @@ def filter_fn(x):
 
 print("Loading tweets")
 f = open('/media/hdd/hdd/data_backup/tweets.txt')
-text = f.readlines()
-corpus = dict()
-corpus_file = list()
-count = 0
-word_max_len = 0
-for line in text:
-	count += 1
-	if count % 10000 == 0:
-		print(count)
-	if len(line.split("\t")) > 1:
-		tweet = {
-			'id' : line.split("\t")[0],
-			'text' : line.split("\t")[1]
-		}
-		corpus[tweet['id']] = filter_fn(tweet['text'])
-		if len(corpus[tweet['id']]) > word_max_len:
-			word_max_len = len(corpus[tweet['id']])
-		corpus_file += corpus[tweet['id']]
-file = ' '.join(corpus_file)
-with open('../data/trec_corpus.txt',mode="w") as fil:
-	fil.write(file)
+# text = f.readlines()
+# corpus = dict()
+# corpus_file = list()
+# count = 0
+# word_max_len = 0
+# for line in text:
+# 	count += 1
+# 	if count % 10000 == 0:
+# 		print(count)
+# 	if len(line.split("\t")) > 1:
+# 		tweet = {
+# 			'id' : line.split("\t")[0],
+# 			'text' : line.split("\t")[1]
+# 		}
+# 		corpus[tweet['id']] = filter_fn(tweet['text'])
+# 		if len(corpus[tweet['id']]) > word_max_len:
+# 			word_max_len = len(corpus[tweet['id']])
+# 		corpus_file += corpus[tweet['id']]
+# file = ' '.join(corpus_file)
+with open('../data/trec_corpus.txt') as fil:
+	file = fil.read()
 print("Written corpus to file")
 text=file
 print(len(file))
@@ -65,7 +65,7 @@ character_data = file
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
-vocabulary_size = 10000000
+vocabulary_size = 1000000
 
 
 def build_dataset(words, vocabulary_size):
@@ -121,7 +121,7 @@ def convert2embedding(batch):
 					train_word[count, t] = dictionary['UNK']
 				for index in range(min(char_max_len, len(tokens[t]))):
 					if tokens[t][index] in punctuation:
-						train_chars[count, t , index] = char_dictionary['-']
+						train_chars[count, t , index] = char_dictionary['.']
 					else:
 						train_chars[count,t,index] = char_dictionary[tokens[t][index]]
 				for index in range(len(tokens[t]), char_max_len):
@@ -137,9 +137,11 @@ char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.i
 for i in range(len(corpus)):
 	if i % 10000 == 0 and i > 0:
 		print(i)
-	word_markers,char_markers = convert2embedding(corpus.values()[i:i+1])
-	word_list[i] = word_markers[0]
-	char_list[i] = char_markers[0]
+	start_time = time.time()
+	word_markers,char_markers = convert2embedding(corpus.values()[i:i+100])
+	word_list[i:i+100] = word_markers[:100]
+	char_list[i:i+100] = char_markers[:100]
+	print(time.time() - start_time)
 np.save('../data/trec/word_embedding.npy',word_list)
 np.save('../data/trec/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
