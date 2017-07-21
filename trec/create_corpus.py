@@ -129,21 +129,20 @@ def convert2embedding(batch):
 				for index in range(len(tokens[t]), char_max_len):
 					train_chars[count,t,index] = char_dictionary[' ']
 		count += 1
-		if count % 100 == 0 and count > 0:
-			print(count)
 	return train_word, train_chars
 
 word_list = np.ndarray(shape=[total_size, word_max_len],dtype=np.int32)
 char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.int32)
-
-for i in range(len(corpus)):
+i=0
+while i < len(corpus):
 	if i % 10000 == 0 and i > 0:
 		print(i)
+		print(time.time() - start_time)
 	start_time = time.time()
 	word_markers,char_markers = convert2embedding(corpus.values()[i:i+100])
 	word_list[i:i+100] = word_markers[:100]
 	char_list[i:i+100] = char_markers[:100]
-	print(time.time() - start_time)
+	i+=100
 np.save('../data/trec/word_embedding.npy',word_list)
 np.save('../data/trec/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
