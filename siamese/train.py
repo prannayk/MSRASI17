@@ -8,8 +8,15 @@ import math
 import time
 import os
 import sys
+sys.path.append( '../util_trec/')
+from generators import *
+from loader import *
+from similar_tokens import *
+from argument_loader import *
 
-initializer_main = tf.random_normal_initializer(stddev=0.02)
+dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expand_flag,lr_, matchname = import_arguments(sys.argv)
+
+char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
 
 class ConvSiamese():
 	def __init__(self, embedding_size):
@@ -41,7 +48,7 @@ class ConvSiamese():
 		h2_norm = self.normalize(h2_max_pool)
 		h2_reshape = tf.reshape(h2_norm, shape=[self.batch_size, self.word_max_len, 64])
 		return h2_reshape
-	def lstm(self, word_embed, scope. flag=True, reverse=True):
+	def lstm(self, word_embed, scope, flag=True, reverse=True):
 		batch_size = int(word_embed.get_shape()[0])
 		seq_len = int(word_embed.get_shape()[1])
 		lstm = tf.contrib.rnn.BasicLSTMCell(64, reuse=scope.reuse)
@@ -66,7 +73,13 @@ class ConvSiamese():
 				else:
 					output = output_state
 		return output
-	def attention_over_sequence(self, word_embed, flag=True):
+	def bilstm(self, word_embed, scope):
+		with tf.variable_scope("forward_lstm") as scope:
+			output_forward = self.lstm(word_embed, reverse=False)
+		with tf.variable_scope("backward_lstm") as scope:
+			output_backward = self.lstm(word_embed, reverse=True)
+		return tf.concat([output_forward,output_backward], axis=2)
+	def attention_over_sequence(self, word_embed):
 		h1 = tf.layers.dense(word_embed, units=self.embedding_size // 2, 
 			activation=tf.tanh, kernel_initializer=self.initializer, 
 			use_bias=True,
@@ -76,3 +89,48 @@ class ConvSiamese():
 			kernel_initializer=self.initializer, use_bias=True, 
 			name="dense_2", reuse=scope.reuse)
 		h2_reshape = tf.reshape(h2, shape=[self.batch_size, self.word_max_len])
+		h2_softmax = tf.nn.softmax(h2_reshape)
+		return h2_softmax
+	def energy(self, embedding, scope, energy_type="cosine"):
+		energy_type = energy_type.lower()
+		norm1 = tf.norm(embedding[0], axis=1)
+		norm2 = tf.norm(embedding[1], axis=1)
+		embedding1_norm = embedding[0] / norm1
+		embedding2_norm = embedding[1] / norm2
+		if energy_type == "cosine":
+			energy_cosine = tf.reduce_sum(embedding1_norm*embedding2_norm)
+			return energy_cosine
+		elif energy_type == "l2_loss":
+			energy_l2 = tf.nn.l2_loss(embedding1_norm - embedding2_norm)
+			return energy_l2
+		else :
+			raise NotImplemented
+	def architecture_lstm(self, placeholders):
+		word_embedding = []
+		lstm_embedding = []
+		with tf.variable_scope("word_embedding"):
+			word_embedding = tf.variable_scope(tf.random_normal(stddev=0.02, 
+				shape=[self.vocabulary_size, self.word_embedding_size]))
+			norm = tf.norm(word_embedding, axis=1)
+			norm_embedding = word_embedding / norm
+			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[0]))
+			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[1]))
+		with tf.variable_scope("bilstm") as scope:
+			lstm_embedding.append(self.bilstm(word_embedding[0], scope))
+			lstm_embedding.append(self.bilstm(word_embedding[1], scope))
+		with tf.variable_scope("energy") as scope:
+			energy = self.energy(lstm_embedding, scope, energy_type="cosine")
+		return energy
+	def build_model(self):
+		tweet = []
+		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
+		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
+		loss = self.architecture_lstm(tweet)
+
+		optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
+
+		return tweet, loss, optimizer
+
+
+
+
