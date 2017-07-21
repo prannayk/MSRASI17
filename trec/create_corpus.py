@@ -133,6 +133,10 @@ def convert2embedding(batch):
 			print(count)
 	return train_word, train_chars
 
+word_max_len = min(20,word_max_len)
+char_max_len = min(20, char_max_len)
+print(char_max_len)
+print(word_max_len)
 word_list = np.ndarray(shape=[total_size, word_max_len],dtype=np.int32)
 char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.int32)
 
