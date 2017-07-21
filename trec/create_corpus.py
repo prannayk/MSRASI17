@@ -34,25 +34,25 @@ def filter_fn(x):
 
 print("Loading tweets")
 f = open('/media/hdd/hdd/data_backup/tweets.txt')
-# text = f.readlines()
-# corpus = dict()
-# corpus_file = list()
-# count = 0
-# word_max_len = 0
-# for line in text:
-# 	count += 1
-# 	if count % 10000 == 0:
-# 		print(count)
-# 	if len(line.split("\t")) > 1:
-# 		tweet = {
-# 			'id' : line.split("\t")[0],
-# 			'text' : line.split("\t")[1]
-# 		}
-# 		corpus[tweet['id']] = filter_fn(tweet['text'])
-# 		if len(corpus[tweet['id']]) > word_max_len:
-# 			word_max_len = len(corpus[tweet['id']])
-# 		corpus_file += corpus[tweet['id']]
-# file = ' '.join(corpus_file)
+text = f.readlines()
+corpus = dict()
+corpus_file = list()
+count = 0
+word_max_len = 0
+for line in text:
+	count += 1
+	if count % 10000 == 0:
+		print(count)
+	if len(line.split("\t")) > 1:
+		tweet = {
+			'id' : line.split("\t")[0],
+			'text' : line.split("\t")[1]
+		}
+		corpus[tweet['id']] = filter_fn(tweet['text'])
+		if len(corpus[tweet['id']]) > word_max_len:
+			word_max_len = len(corpus[tweet['id']])
+		corpus_file += corpus[tweet['id']]
+file = ' '.join(corpus_file)
 with open('../data/trec_corpus.txt') as fil:
 	file = fil.read()
 print("Written corpus to file")
