@@ -101,6 +101,8 @@ print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
 total_size = len(corpus)
 
 
+
+
 # Step 4: Build and train a skip-gram model.
 def convert2embedding(batch):
 	global char_dictionary, dictionary
