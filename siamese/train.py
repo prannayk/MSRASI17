@@ -8,7 +8,7 @@ import math
 import time
 import os
 import sys
-sys.path.append( '../util_trec/')
+sys.path.append( '../util/')
 from generators import *
 from loader import *
 from similar_tokens import *
@@ -19,7 +19,8 @@ dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expan
 char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
 
 class ConvSiamese():
-	def __init__(self, embedding_size):
+	def __init__(self, embedding_size=128, batch_size=64, word_max_len=word_max_len,
+		learning_rate = 0.01, vocabulary_size=vocabulary_size):
 		self.embedding_size = embedding_size
 		self.initializer = tf.random_normal_initializer(stddev=0.02)
 	def normalize(self, X, reuse=False, name=None, flag=False):
@@ -131,6 +132,25 @@ class ConvSiamese():
 
 		return tweet, loss, optimizer
 
+data_index, batch, labels = generate_batch(data, data_index, batch_size=8, num_skips=2, skip_window=1,)
+for i in range(8):
+  print(batch[i], reverse_dictionary[batch[i]],
+        '->', labels[i, 0], reverse_dictionary[labels[i, 0]])
 
+lambda_1, tweet_batch_size, expand_start_count, query_name, query_tokens, query_tokens_alternate, char_batch_size, num_sampled, valid_examples, valid_window, valid_size, skip_window, num_skips, embedding_size, char_vocabulary_size, batch_size, num_char_skips, skip_char_window = setup(char_dictionary, dictionary, query_type)
 
+architecture = ConvSiamese(learning_rate=lr_)
+tweet, loss, optimizer = architecture.build_model()
 
+epoch = 100
+batch_size = 32
+total_tweets = len(word_batch_dict) - (len(word_batch_dict) % batch_size)
+
+for ep in range(epoch):
+	assert total_tweets % batch_size == 0
+	for i in range(total_tweets // batch_size) : 
+		tweet_value = generate_pair()
+		feed_dict = {
+			tweet : tweet_value
+		}
+		_, loss_val = session.run([optimizer, loss], feed_dict = feed_dict)

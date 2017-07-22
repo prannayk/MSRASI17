@@ -60,7 +60,7 @@ text=file
 print(len(file))
 print(len(text))
 words = text.split()
-chars = list(set(file))
+chars = list(set(file)) + ['.']
 character_data = file
 print('Data size', len(words))
 
