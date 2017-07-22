@@ -106,7 +106,7 @@ class ConvSiamese():
 			return energy_l2
 		else :
 			raise NotImplemented
-	def architecture_lstm(self, placeholders):
+	def architecture_lstm(self, placeholders, markers):
 		word_embedding = []
 		lstm_embedding = []
 		with tf.variable_scope("word_embedding"):
@@ -121,16 +121,20 @@ class ConvSiamese():
 			lstm_embedding.append(self.bilstm(word_embedding[1], scope))
 		with tf.variable_scope("energy") as scope:
 			energy = self.energy(lstm_embedding, scope, energy_type="cosine")
-		return energy
+		loss = tf.reduce_mean(tf.square(energy - markers))
+		return loss
+
+		return cross_entropy_loss
 	def build_model(self):
 		tweet = []
 		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
 		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
-		loss = self.architecture_lstm(tweet)
+		markers = tf.placeholders(tf.float32, shape=[self.batch_size])
+		loss = -self.architecture_lstm(tweet)
 
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
-		return tweet, loss, optimizer
+		return tweet, markers, loss, optimizer
 
 data_index, batch, labels = generate_batch(data, data_index, batch_size=8, num_skips=2, skip_window=1,)
 for i in range(8):
@@ -145,12 +149,22 @@ tweet, loss, optimizer = architecture.build_model()
 epoch = 100
 batch_size = 32
 total_tweets = len(word_batch_dict) - (len(word_batch_dict) % batch_size)
+print_interval = 10
 
 for ep in range(epoch):
+	start_time = time.time()
+	average_val = 0
 	assert total_tweets % batch_size == 0
 	for i in range(total_tweets // batch_size) : 
-		tweet_value = generate_pair()
+		tweet_value, marker_value = generate_pair()
 		feed_dict = {
 			tweet : tweet_value
+			markers : marker_value
 		}
 		_, loss_val = session.run([optimizer, loss], feed_dict = feed_dict)
+		average_val += (loss_val / print_interval)
+		if i % print_interval == 0:
+			print("Batches : %d ,Loss: %.2f and time taken %.2f"%(i*batch_size, average_val, time.time()-start_time))
+			average_val = 0
+			start_time = time.time()
+	architecture.create_qrel(word_batch_dict, char_batch_dict)
