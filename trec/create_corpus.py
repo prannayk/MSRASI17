@@ -101,7 +101,7 @@ print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
 total_size = len(corpus)
 
 
-
+print(char_dictionary['.'])
 
 # Step 4: Build and train a skip-gram model.
 def convert2embedding(batch):
@@ -131,6 +131,10 @@ def convert2embedding(batch):
 		count += 1
 	return train_word, train_chars
 
+word_max_len = min(20,word_max_len)
+char_max_len = min(20, char_max_len)
+print(char_max_len)
+print(word_max_len)
 word_list = np.ndarray(shape=[total_size, word_max_len],dtype=np.int32)
 char_list = np.ndarray(shape=[total_size, word_max_len, char_max_len],dtype=np.int32)
 i=0
