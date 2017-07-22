@@ -60,7 +60,7 @@ text=file
 print(len(file))
 print(len(text))
 words = text.split()
-chars = list(set(file))
+chars = list(set(file)) + ['.']
 character_data = file
 print('Data size', len(words))
 
@@ -101,7 +101,7 @@ print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
 total_size = len(corpus)
 
 
-
+print(char_dictionary['.'])
 
 # Step 4: Build and train a skip-gram model.
 def convert2embedding(batch):
