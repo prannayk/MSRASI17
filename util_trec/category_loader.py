@@ -18,6 +18,8 @@ def load_categories():
 	return dictionary, list_cats
 
 def generate_pair(dictionary, list_cats, word_batch_dict, batch_size, word_max_len):
+	list_common = list(set(word_batch_dict.keys()) - (set(word_batch_dict.keys()) - set(dictionary.keys())))
+	print(len(list_common))
 	t1 = np.random.choice(word_batch_dict.keys(), size=batch_size, replace=False)
 	t2 = np.random.choice(word_batch_dict.keys(), size=batch_size, replace=False)
 	tweets1 = np.zeros([2*batch_size, word_max_len])
