@@ -120,7 +120,7 @@ class ConvSiamese():
 		with tf.variable_scope("word_embedding"):
 			word_embedding = tf.variable_scope(tf.random_normal(stddev=0.02, 
 				shape=[self.vocabulary_size, self.word_embedding_size]))
-			norm = tf.norm(word_embedding, axis=1)
+			norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
 			norm_embedding = word_embedding / norm
 			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[0]))
 			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[1]))
