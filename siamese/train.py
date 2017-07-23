@@ -25,6 +25,10 @@ class ConvSiamese():
 	def __init__(self, embedding_size=128, batch_size=64, word_max_len=word_max_len,
 		learning_rate = 0.01, vocabulary_size=vocabulary_size):
 		self.embedding_size = embedding_size
+		self.batch_size = batch_size
+		self.word_max_len = word_max_len
+		self.learning_rate = learning_rate
+		self.vocabulary_size = vocabulary_size
 		self.initializer = tf.random_normal_initializer(stddev=0.02)
 	def normalize(self, X, reuse=False, name=None, flag=False):
 		if not flag : 
