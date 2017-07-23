@@ -53,8 +53,8 @@ for line in text:
 			word_max_len = len(corpus[tweet['id']])
 		corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
-with open('../data/trec_corpus.txt') as fil:
-	file = fil.read()
+with open('../data/trec_corpus.txt',mode="w") as fil:
+	fil.write(file)
 print("Written corpus to file")
 text=file
 print(len(file))
