@@ -166,7 +166,10 @@ assert batch_size % 2 == 0
 
 print("roller")
 list1 = dictionary.keys()
-common_list = [i for i in filter(lambda x: x in list1, word_batch_dict.keys())]
+common_list = []
+for t in word_batch_dict.keys():
+	if t in list1:
+		common_list.append(t)
 print("roller")
 
 for ep in range(epoch):
