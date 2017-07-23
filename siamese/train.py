@@ -31,17 +31,17 @@ class ConvSiamese():
 		return tf.nn.batch_normalization(X, mean, vari, offset=None, 
 			scale=None, variance_epsilon=1e-6, name=name)
 	def convolve_word(self, word_embed, scope):
-		word_embed_reshape = tf.reshape(word_embed, shape=[self.batch_size
+		word_embed_reshape = tf.reshape(word_embed, shape=[self.batch_size,
 			self.word_max_len, 1, self.embedding_size])
 		h1 = tf.layers.conv2d(word_embed_reshape, filters=128, 
-			kernel_size=[4,1]. strides=[1,1], padding='SAME',
+			kernel_size=[4,1], strides=[1,1], padding='SAME',
 			activation=tf.tanh, kernel_initializer=self.initializer,
 			name="conv_1")
 		h1_max_pool = tf.layers.max_pooling2d(h1, pool_size=[3,1],
 			strides=[2,1],padding='SAME',name="max_pool_1")
 		h1_norm = self.normalize(h1_max_pool)
 		h2 = tf.layers.conv2d(h1_norm, filters=64, 
-			kernel_size=[4,1]. strides=[1,1], padding='SAME',
+			kernel_size=[4,1], strides=[1,1], padding='SAME',
 			activation=tf.tanh, kernel_initializer=self.initializer,
 			name="conv_2")
 		h2_max_pool = tf.layers.max_pooling2d(h2, pool_size=[3,1], 
@@ -158,7 +158,7 @@ for ep in range(epoch):
 	for i in range(total_tweets // batch_size) : 
 		tweet_value, marker_value = generate_pair()
 		feed_dict = {
-			tweet : tweet_value
+			tweet : tweet_value,
 			markers : marker_value
 		}
 		_, loss_val = session.run([optimizer, loss], feed_dict = feed_dict)
