@@ -18,6 +18,7 @@ def load_categories():
 	return dictionary, list_cats
 
 def generate_pair(dictionary, list_cats, word_batch_dict, batch_size, word_max_len):
+	print("roller")
 	list_common = [i for i in filter(lambda x: x in dictionary.keys(), word_batch_dict.keys())]
 	print(len(list_common))
 	t1 = np.random.choice(list_common, size=batch_size, replace=False)
