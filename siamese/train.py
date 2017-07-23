@@ -23,11 +23,12 @@ category_lists, list_cats = load_categories()
 
 class ConvSiamese():
 	def __init__(self, embedding_size=128, batch_size=64, word_max_len=word_max_len,
-		learning_rate = 0.01, vocabulary_size=vocabulary_size):
+		learning_rate = 0.01, vocabulary_size=vocabulary_size, word_embedding_size=128):
 		self.embedding_size = embedding_size
 		self.batch_size = batch_size
 		self.word_max_len = word_max_len
 		self.learning_rate = learning_rate
+		self.word_embedding_size = word_embedding_size
 		self.vocabulary_size = vocabulary_size
 		self.initializer = tf.random_normal_initializer(stddev=0.02)
 	def normalize(self, X, reuse=False, name=None, flag=False):
@@ -137,7 +138,7 @@ class ConvSiamese():
 		tweet.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len]))
 		tweet.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len]))
 		markers = tf.placeholder(tf.float32, shape=[self.batch_size])
-		loss = -self.architecture_lstm(tweet)
+		loss = -self.architecture_lstm(tweet, markers)
 
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
@@ -151,7 +152,7 @@ for i in range(8):
 lambda_1, tweet_batch_size, expand_start_count, query_name, query_tokens, query_tokens_alternate, char_batch_size, num_sampled, valid_examples, valid_window, valid_size, skip_window, num_skips, embedding_size, char_vocabulary_size, batch_size, num_char_skips, skip_char_window = setup(char_dictionary, dictionary, query_type)
 
 architecture = ConvSiamese(learning_rate=lr_)
-tweet, loss, optimizer = architecture.build_model()
+tweet, markers, loss, optimizer = architecture.build_model()
 
 epoch = 100
 batch_size = 32
