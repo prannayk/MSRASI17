@@ -38,6 +38,9 @@ class ConvSiamese():
 			mean, vari = tf.nn.moments(X, [0,1,2], keep_dims=True)
 		return tf.nn.batch_normalization(X, mean, vari, offset=None, 
 			scale=None, variance_epsilon=1e-6, name=name)
+	def norm(self, X):
+		norm = tf.sqrt(tf.reduce_mean(tf.square(X), axis=1, keep_dims=True))
+		return X / norm
 	def convolve_word(self, word_embed, scope):
 		word_embed_reshape = tf.reshape(word_embed, shape=[self.batch_size,
 			self.word_max_len, 1, self.embedding_size])
