@@ -164,13 +164,18 @@ print_interval = 10
 
 assert batch_size % 2 == 0
 
+print("roller")
+list1 = dictionary.keys()
+common_list = [i for i in filter(lambda x: x in list1, word_batch_dict.keys())]
+print("roller")
+
 for ep in range(epoch):
 	start_time = time.time()
 	average_val = 0
 	assert total_tweets % batch_size == 0
 	for i in range(total_tweets // batch_size) : 
 		tweet_value, marker_value = generate_pair(category_lists, list_cats, 
-			word_batch_dict, batch_size // 2, word_max_len)
+			word_batch_dict, batch_size // 2, word_max_len, common_list)
 		feed_dict = {
 			tweet : tweet_value,
 			markers : marker_value
