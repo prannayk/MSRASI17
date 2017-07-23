@@ -18,8 +18,8 @@ def load_categories():
 	return dictionary, list_cats
 
 def generate_pair(dictionary, list_cats, word_batch_dict, batch_size, word_max_len):
-	t1 = np.random.choice(dictionary.keys(), size=batch_size, replace=False)
-	t2 = np.random.choice(dictionary.keys(), size=batch_size, replace=False)
+	t1 = np.random.choice(word_batch_dict.keys(), size=batch_size, replace=False)
+	t2 = np.random.choice(word_batch_dict.keys(), size=batch_size, replace=False)
 	tweets1 = np.zeros([2*batch_size, word_max_len])
 	tweets2 = np.zeros([2*batch_size, word_max_len])
 	marker = np.zeros([3*batch_size])
