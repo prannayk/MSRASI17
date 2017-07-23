@@ -102,8 +102,8 @@ class ConvSiamese():
 		return h2_softmax
 	def energy(self, embedding, scope, energy_type="cosine"):
 		energy_type = energy_type.lower()
-		norm1 = self.norm(embedding[0], axis=1)
-		norm2 = self.norm(embedding[1], axis=1)
+		norm1 = tf.norm(embedding[0], axis=1, keep_dims=True)
+		norm2 = tf.norm(embedding[1], axis=1, keep_dims=True)
 		embedding1_norm = embedding[0] / norm1
 		embedding2_norm = embedding[1] / norm2
 		if energy_type == "cosine":
@@ -167,7 +167,7 @@ for ep in range(epoch):
 	assert total_tweets % batch_size == 0
 	for i in range(total_tweets // batch_size) : 
 		tweet_value, marker_value = generate_pair(category_lists, list_cats, 
-			word_batch_dict, batch_size // 2)
+			word_batch_dict, batch_size // 2, word_max_len)
 		feed_dict = {
 			tweet : tweet_value,
 			markers : marker_value
