@@ -9,14 +9,17 @@ import time
 import os
 import sys
 sys.path.append( '../util/')
+sys.path.append( '../util_trec/')
 from generators import *
 from loader import *
 from similar_tokens import *
 from argument_loader import *
+from category_loader import *
 
 dataset, query_type, filename, num_steps, num_steps_roll, num_steps_train, expand_flag,lr_, matchname = import_arguments(sys.argv)
 
 char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
+category_lists, list_cats = load_categories()
 
 class ConvSiamese():
 	def __init__(self, embedding_size=128, batch_size=64, word_max_len=word_max_len,
@@ -151,12 +154,15 @@ batch_size = 32
 total_tweets = len(word_batch_dict) - (len(word_batch_dict) % batch_size)
 print_interval = 10
 
+assert batch_size % 2 == 0
+
 for ep in range(epoch):
 	start_time = time.time()
 	average_val = 0
 	assert total_tweets % batch_size == 0
 	for i in range(total_tweets // batch_size) : 
-		tweet_value, marker_value = generate_pair()
+		tweet_value, marker_value = generate_pair(category_lists, list_cats, 
+			word_batch_dict, batch_size // 2)
 		feed_dict = {
 			tweet : tweet_value
 			markers : marker_value
