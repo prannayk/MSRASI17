@@ -57,7 +57,7 @@ class ConvSiamese():
 		h2_norm = self.normalize(h2_max_pool)
 		h2_reshape = tf.reshape(h2_norm, shape=[self.batch_size, self.word_max_len, 64])
 		return h2_reshape
-	def lstm(self, word_embed, scope, flag=True, reverse=True):
+	def lstm(self, word_embed, scope, flag=False, reverse=True):
 		batch_size = int(word_embed.get_shape()[0])
 		seq_len = int(word_embed.get_shape()[1])
 		lstm = tf.contrib.rnn.BasicLSTMCell(64, reuse=scope.reuse)
@@ -66,27 +66,27 @@ class ConvSiamese():
 		for i in range(seq_len):
 			if flag or repeat_flag :
 				scope.reuse_variables()
-			repeat_flag = True
 			if not reverse :
-				cell_output, state = lstm(word_embed[:,l,:])
+				cell_output, state = lstm(word_embed[:,i,:], state)
 				output_state = tf.reshape(cell_output, shape=[batch_size, 1, 64])
 				if repeat_flag : 
 					output = tf.concat([output,output_state],axis=1)
 				else:
 					output = output_state
 			else : 
-				cell_output, state = lstm(word_embed[:,seq_len -l - 1 ,:])
+				cell_output, state = lstm(word_embed[:,seq_len -i - 1 ,:], state)
 				output_state = tf.reshape(cell_output, shape=[batch_size, 1, 64])
 				if repeat_flag : 
 					output = tf.concat([output_state,output],axis=1)
 				else:
 					output = output_state
+			repeat_flag = True
 		return output
-	def bilstm(self, word_embed, scope):
+	def bilstm(self, word_embed, scope, flag=False):
 		with tf.variable_scope("forward_lstm") as scope:
-			output_forward = self.lstm(word_embed, reverse=False)
+			output_forward = self.lstm(word_embed, scope, reverse=False, flag=flag)
 		with tf.variable_scope("backward_lstm") as scope:
-			output_backward = self.lstm(word_embed, reverse=True)
+			output_backward = self.lstm(word_embed, scope, reverse=True, flag=flag)
 		return tf.concat([output_forward,output_backward], axis=2)
 	def attention_over_sequence(self, word_embed):
 		h1 = tf.layers.dense(word_embed, units=self.embedding_size // 2, 
@@ -102,8 +102,8 @@ class ConvSiamese():
 		return h2_softmax
 	def energy(self, embedding, scope, energy_type="cosine"):
 		energy_type = energy_type.lower()
-		norm1 = tf.norm(embedding[0], axis=1)
-		norm2 = tf.norm(embedding[1], axis=1)
+		norm1 = self.norm(embedding[0], axis=1)
+		norm2 = self.norm(embedding[1], axis=1)
 		embedding1_norm = embedding[0] / norm1
 		embedding2_norm = embedding[1] / norm2
 		if energy_type == "cosine":
@@ -115,18 +115,18 @@ class ConvSiamese():
 		else :
 			raise NotImplemented
 	def architecture_lstm(self, placeholders, markers):
-		word_embedding = []
+		word_embeddings = []
 		lstm_embedding = []
 		with tf.variable_scope("word_embedding"):
-			word_embedding = tf.variable_scope(tf.random_normal(stddev=0.02, 
+			word_embedding = tf.Variable(tf.random_normal(stddev=0.02, 
 				shape=[self.vocabulary_size, self.word_embedding_size]))
-			norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
+			norm = tf.sqrt(tf.reduce_sum(tf.square(word_embedding), 1, keep_dims=True))
 			norm_embedding = word_embedding / norm
-			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[0]))
-			word_embedding.append(tf.nn.embedding_lookup(norm_embedding, placeholders[1]))
+			word_embeddings.append(tf.nn.embedding_lookup(norm_embedding, placeholders[0]))
+			word_embeddings.append(tf.nn.embedding_lookup(norm_embedding, placeholders[1]))
 		with tf.variable_scope("bilstm") as scope:
-			lstm_embedding.append(self.bilstm(word_embedding[0], scope))
-			lstm_embedding.append(self.bilstm(word_embedding[1], scope))
+			lstm_embedding.append(tf.reduce_mean(self.bilstm(word_embeddings[0], scope), axis=1))
+			lstm_embedding.append(tf.reduce_mean(self.bilstm(word_embeddings[1], scope, flag=True),axis=1))
 		with tf.variable_scope("energy") as scope:
 			energy = self.energy(lstm_embedding, scope, energy_type="cosine")
 		loss = tf.reduce_mean(tf.square(energy - markers))
