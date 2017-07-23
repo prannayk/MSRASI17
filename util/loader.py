@@ -38,7 +38,7 @@ def build_everything(dataset, consider=False, consider_set=None):
     t = fil.readlines()
   word_max_len, char_max_len = map(lambda x: int(x),t)
 
-  filename = '../data/corpus.txt'
+  filename = '../data/%s/corpus.txt'%(dataset)
   words,chars,character_data = read_data(filename)
   print('Data size', len(words))
   filename_rel = '../data/%s/corpus.txt'%(dataset)
@@ -67,15 +67,6 @@ def build_everything(dataset, consider=False, consider_set=None):
     tweet_list = map(lambda x: filter(lambda y: y != '\n', x), fil.readlines())
   word_batch_dict = dict(zip(tweet_list, word_batch_list))
   char_batch_dict = dict(zip(tweet_list, char_batch_list))
-  if consider :
-    if consider_set == "nepal" : 
-      string = int("5")
-    else:
-      string = int("7")
-    for t in word_batch_dict.keys():
-      if int(t[0]) == string:
-        del word_batch_dict[t]
-        del char_batch_dict[t]
 
   batch_list = dict()
   buffer_index = 1
