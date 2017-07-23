@@ -15,8 +15,8 @@ from loader import *
 from similar_tokens import *
 from argument_loader import *
 from category_loader import *
-
-dataset, query_flag, savename, steps_1, steps_2, steps_3, expand_flag , lr_, matchname, haifu_var = import_arguments(sys.argv)
+from setup import *
+dataset, query_flag, savename, steps_1, steps_2, steps_3, expand_flag , lr_, matchname, query_type = import_arguments(sys.argv)
 
 char_batch_dict, word_batch_dict,data, count, dictionary, reverse_dictionary, word_max_len, char_max_len, vocabulary_size, char_dictionary, reverse_char_dictionary, data_index, char_data_index, buffer_index, batch_list, char_batch_list, word_batch_list, char_data = build_everything(dataset)
 category_lists, list_cats = load_categories()
@@ -130,9 +130,9 @@ class ConvSiamese():
 		return cross_entropy_loss
 	def build_model(self):
 		tweet = []
-		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
-		tweet.append(tf.placeholders(tf.int32, shape=[self.batch_size, self.word_max_len]))
-		markers = tf.placeholders(tf.float32, shape=[self.batch_size])
+		tweet.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len]))
+		tweet.append(tf.placeholder(tf.int32, shape=[self.batch_size, self.word_max_len]))
+		markers = tf.placeholder(tf.float32, shape=[self.batch_size])
 		loss = -self.architecture_lstm(tweet)
 
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
