@@ -9,7 +9,9 @@ print(files)
 tweet_list = {}
 flag=False
 count = 0
+fcount = 0
 for name in files:
+	fcount +=1
 	with open(name) as f:
 		text = f.readlines()
 	bui=False
@@ -28,7 +30,7 @@ for name in files:
 			# print(line)
 			print(count)
 		bui=False
-	print(name + " %d"%(count))
+	print(name + " %d %d"%(count, fcount))
 
 with open("tweet_list.txt", mode="w") as f:
 	f.write('\n'.join(map(lambda  (x,y) : "%d\t%s"%(x,y), zip(tweet_list.keys(), tweet_list.values()))))
