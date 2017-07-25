@@ -25,10 +25,10 @@ for name in files:
 		count += 1	
 		if count % 100000 == 0 and bui:	
 			bui=False
-			print(line)
+			# print(line)
 			print(count)
 		bui=False
-	print(name)
+	print(name + " %d"%(count))
 
 with open("tweet_list.txt", mode="w") as f:
 	f.write('\n'.join(map(lambda  (x,y) : "%d\t%s"%(x,y), zip(tweet_list.keys(), tweet_list.values()))))
