@@ -15,7 +15,7 @@ for name in files:
 	bui=False
 	for line in text:
 		if line.startswith("<tweettime>"):
-			last_time = line.split(">")[1].split("<")[0]
+			last_time = filter(lambda x : x!='\n', line.split(">")[1].split("<")[0])
 		elif "<TEXT>" in line:
 			flag = True
 		elif flag:
@@ -26,6 +26,7 @@ for name in files:
 		if count % 10000 == 0 and bui:	
 			bui=False
 			print(line)
+			print(count)
 		bui=False
 
 with open("tweet_list.txt", mode="w") as f:
