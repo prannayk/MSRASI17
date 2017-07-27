@@ -32,7 +32,7 @@ for name in files:
 		bui=False
 	print(name + " %d %d"%(count, fcount))
 
-with open("tweet_list.txt", mode="w") as f:
-	f.write('\n'.join(map(lambda  (x,y) : "%d\t%s"%(x,y), zip(tweet_list.keys(), tweet_list.values()))))
+with open("/media/hdd/hdd/data_backup/tweet_list.txt", mode="w") as f:
+	f.write('\n'.join(map(lambda  (x,y) : "%s\t%s"%(x,y), zip(tweet_list.keys(), tweet_list.values()))))
 
 print("Done")

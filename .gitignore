@@ -16,3 +16,4 @@ alternate_models/nepa*
 *.result.*
 *.pyc
 mob*
+data/trec_corpus.txt

@@ -168,10 +168,10 @@ print("roller")
 list1 = dictionary.keys()
 common_list = []
 for t in word_batch_dict.keys():
+	print(t)
 	if t in list1:
 		common_list.append(t)
-	if len(common_list) % 1000 == 0 and len(common_list) > 0:
-		print(len(common_list))
+	print(len(common_list))
 print("roller")
 
 for ep in range(epoch):

@@ -33,7 +33,7 @@ def filter_fn(x):
 	return final
 
 print("Loading tweets")
-f = open('/media/hdd/hdd/data_backup/tweets.txt')
+f = open('/media/hdd/hdd/data_backup/tweets_dict.txt')
 text = f.readlines()
 corpus = dict()
 corpus_file = list()
@@ -53,7 +53,7 @@ for line in text:
 			word_max_len = len(corpus[tweet['id']])
 		corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
-with open('../data/trec_corpus.txt',mode="w") as fil:
+with open('/meda/hdd/hdd/dat_backupa/trec/corpus.txt',mode="w") as fil:
 	fil.write(file)
 print("Written corpus to file")
 text=file
@@ -147,11 +147,11 @@ while i < len(corpus):
 	word_list[i:i+100] = word_markers[:100]
 	char_list[i:i+100] = char_markers[:100]
 	i+=100
-np.save('../data/trec/word_embedding.npy',word_list)
-np.save('../data/trec/char_embedding.npy',char_list)
+np.save('/media/hdd/hdd/data_backup/trec/word_embedding.npy',word_list)
+np.save('/meda/hdd/hdd/data_backup/trec/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
-with open("../data/trec/tweet_ids.txt",mode="w") as fil:
+with open("/media/hdd/hdd/data_backup/trec/tweet_ids.txt",mode="w") as fil:
 	fil.write('\n'.join(l))
 print_list = [str(word_max_len),str(char_max_len)]
-with open('../data/trec/data.npy',mode="w") as fil:
+with open('/media/hdd/hdd/data_backup/trec/data.npy',mode="w") as fil:
 	fil.write('\n'.join(print_list))
