@@ -52,9 +52,9 @@ for line in text:
 		if len(corpus[tweet['id']]) > word_max_len:
 			word_max_len = len(corpus[tweet['id']])
 		corpus_file += corpus[tweet['id']]
-file = ' '.join(corpus_file)
+# file = ' '.join(corpus_file)
 with open('/meda/hdd/hdd/dat_backupa/trec/corpus.txt',mode="w") as fil:
-	fil.write(file)
+	fil.write(' '.join(corpus_file))
 print("Written corpus to file")
 text=file
 print(len(file))
