@@ -36,7 +36,6 @@ print("Loading tweets")
 f = open('/media/hdd/hdd/data_backup/tweets_dict.txt')
 text = f.readlines()
 corpus = dict()
-corpus_file = list()
 count = 0
 word_max_len = 0
 for line in text:
@@ -51,17 +50,12 @@ for line in text:
 		corpus[tweet['id']] = filter_fn(tweet['text'])
 		if len(corpus[tweet['id']]) > word_max_len:
 			word_max_len = len(corpus[tweet['id']])
-		corpus_file += corpus[tweet['id']]
-# file = ' '.join(corpus_file)
+file = ' '.join(map(lambda x: ' '.join(x) ,corpus.values()))
 with open('/meda/hdd/hdd/dat_backupa/trec/corpus.txt',mode="w") as fil:
-	fil.write(' '.join(corpus_file))
+	fil.write(file)
 print("Written corpus to file")
-text=file
-print(len(file))
-print(len(text))
-words = text.split()
+words = file.split()
 chars = list(set(file)) + ['.']
-character_data = file
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
