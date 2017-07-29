@@ -51,7 +51,7 @@ for line in text:
 		if len(corpus[tweet['id']]) > word_max_len:
 			word_max_len = len(corpus[tweet['id']])
 file = ' '.join(map(lambda x: ' '.join(x) ,corpus.values()))
-with open('/meda/hdd/hdd/dat_backupa/trec/corpus.txt',mode="w") as fil:
+with open('/media/hdd/hdd/data_backup/trec/corpus.txt',mode="w") as fil:
 	fil.write(file)
 print("Written corpus to file")
 words = file.split()
@@ -142,7 +142,7 @@ while i < len(corpus):
 	char_list[i:i+100] = char_markers[:100]
 	i+=100
 np.save('/media/hdd/hdd/data_backup/trec/word_embedding.npy',word_list)
-np.save('/meda/hdd/hdd/data_backup/trec/char_embedding.npy',char_list)
+np.save('/media/hdd/hdd/data_backup/trec/char_embedding.npy',char_list)
 l = map(lambda x: str(x), corpus.keys())
 with open("/media/hdd/hdd/data_backup/trec/tweet_ids.txt",mode="w") as fil:
 	fil.write('\n'.join(l))
