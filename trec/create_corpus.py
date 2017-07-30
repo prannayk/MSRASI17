@@ -33,7 +33,7 @@ def filter_fn(x):
 	return final
 
 print("Loading tweets")
-f = open('/media/hdd/hdd/data_backup/tweets_dict.txt')
+f = open('../../tweets_dict.txt')
 text = f.readlines()
 corpus = dict()
 count = 0
