@@ -20,7 +20,7 @@ printable = set(string.printable)
 query_words = ['need','require'] # query tokens
 query_words += ['send','distribut','avail'] # query tokens
 query_tokens = map(lambda x: st.stem(x),query_words) 
-
+dataset = sys.argv[1]
 char_max_len = 0
 
 def filter_fn(x):
@@ -45,8 +45,9 @@ for line in text:
 	count += 1
 	if count % 1000 == 0:
 		print(count)
+	tweet = {}
 	tweet['text'] = line.split("\t")[1]
-    tweet['id'] = line.split("\t")[0]
+	tweet['id'] = line.split("\t")[0]
 	corpus[tweet['id']] = filter_fn(tweet['text'])
 	if len(corpus[tweet['id']]) > word_max_len:
 		word_max_len = len(corpus[tweet['id']])
@@ -147,3 +148,7 @@ with open("../data/%s/tweet_ids.txt"%(dataset),mode="w") as fil:
 print_list = [str(word_max_len),str(char_max_len)]
 with open('../data/%s/data.npy'%(dataset),mode="w") as fil:
 	fil.write('\n'.join(print_list))
+rev_dict_file = zip(reverse_dictionary.keys(), reverse_dictionary.values())
+dict_text = '\n'.join(map(lambda x : "%d : %s"%(x[0],x[1]), rev_dict_file))
+with open("../data/%s/revdict.npy"%(dataset), mode="w") as fil:
+	fil.write(dict_text)
