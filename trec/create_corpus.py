@@ -33,7 +33,7 @@ def filter_fn(x):
 	return final
 
 print("Loading tweets")
-f = open('/media/hdd/hdd/data_backup/tweets_dict.txt')
+f = open('../../tweets_dict.txt')
 text = f.readlines()
 corpus = dict()
 count = 0
@@ -51,9 +51,15 @@ for line in text:
 		if len(corpus[tweet['id']]) > word_max_len:
 			word_max_len = len(corpus[tweet['id']])
 file = ' '.join(map(lambda x: ' '.join(x) ,corpus.values()))
-with open('/media/hdd/hdd/data_backup/trec/corpus.txt',mode="w") as fil:
+with open('../../trec/corpus.txt',mode="w") as fil:
 	fil.write(file)
-print("Written corpus to file")
+del file
+file = '\n'.join(map(lambda x,y : "%s\t%s"%(x,y), zip(corpus.keys(), corpus.values())))
+with open('../../trec/dict_corpus.txt',mode="w") as fil:
+	fil.write(file)
+del file
+print("Written corpus to file, exiting")
+exit(0)
 words = file.split()
 chars = list(set(file)) + ['.']
 print('Data size', len(words))
