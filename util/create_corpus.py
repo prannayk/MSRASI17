@@ -10,11 +10,6 @@ from nltk.stem.lancaster import LancasterStemmer
 from nltk.corpus import stopwords
 
 args = sys.argv
-if len(args) == 1:
-	dataset = 'nepal'
-	dataset2 = 'italy'
-else: 
-	dataset = args[1]
 
 tknzr = TweetTokenizer(strip_handles=True, reduce_len=True, preserve_case=False)
 st = LancasterStemmer()
@@ -42,9 +37,6 @@ def filter_fn(x):
 print("Loading tweets")
 f = open('../dataset/%s.jsonl'%(dataset))
 text = f.readlines()
-if len(args) == 1:
-	f = open('../dataset/%s.jsonl'%(dataset2))
-	text += f.readlines()
 corpus = dict()
 corpus_file = list()
 count = 0
@@ -53,23 +45,17 @@ for line in text:
 	count += 1
 	if count % 1000 == 0:
 		print(count)
-	tweet = json.loads(line)
+	tweet['text'] = line.split("\t")[1]
+    tweet['id'] = line.split("\t")[0]
 	corpus[tweet['id']] = filter_fn(tweet['text'])
 	if len(corpus[tweet['id']]) > word_max_len:
 		word_max_len = len(corpus[tweet['id']])
 	corpus_file += corpus[tweet['id']]
 file = ' '.join(corpus_file)
-if len(args) == 1:
-    dataset = ""
 with open('../data/%s/corpus.txt'%(dataset),mode="w") as fil:
 	fil.write(file)
 print("Written corpus to file")
-if len(args) > 1:
-    print("Using everything")
-    with open("../data/corpus.txt",mode="r") as fil:
-        text = '\n'.join(fil.readlines())
-else:
-    text = file
+text = file
 print(len(file))
 print(len(text))
 words = text.split()
@@ -78,7 +64,7 @@ character_data = file
 print('Data size', len(words))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
-vocabulary_size = 1000000
+vocabulary_size = 100000
 
 
 def build_dataset(words, vocabulary_size):
