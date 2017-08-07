@@ -45,9 +45,7 @@ for line in text:
 	count += 1
 	if count % 1000 == 0:
 		print(count)
-	tweet = {}
-	tweet['text'] = line.split("\t")[1]
-	tweet['id'] = line.split("\t")[0]
+	tweet = json.loads(line)
 	corpus[tweet['id']] = filter_fn(tweet['text'])
 	if len(corpus[tweet['id']]) > word_max_len:
 		word_max_len = len(corpus[tweet['id']])
