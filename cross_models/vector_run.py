@@ -6,7 +6,7 @@ import string
 from nltk.stem.lancaster import LancasterStemmer
 stemmer = LancasterStemmer()
 
-with open("/media/hdd/hdd/data_backup/glove.twitter.27B.25d.txt") as f:
+with open("/media/hdd/hdd/data_backup/glove.twitter.27B.100d.txt") as f:
 	lines = f.readlines()
 wv = dict()
 punctuation = string.punctuation
@@ -45,15 +45,15 @@ def build_dataset(words, vocabulary_size):
   print(len(reverse_dictionary))
   return data, count, dictionary, reverse_dictionary
 print("loaded vectors")
-with open("../data/italy/corpus.txt") as f:
+with open("../data/nepal/corpus.txt") as f:
 	t = f.readlines()
 	t =map(lambda y : filter(lambda x: x!='\n', y), t)
 	text = ' '.join(t)
 print(len(text))
 data, count, dictionary, reverse_dictionary = build_dataset(text.split(), 100000)
 
-word_data = np.load("../data/italy/word_embedding.npy")
-with open("../data/italy/tweet_ids.txt") as f:
+word_data = np.load("../data/nepal/word_embedding.npy")
+with open("../data/nepal/tweet_ids.txt") as f:
 	ids = f.readlines()
 	ids = map(lambda y: filter(lambda x : x!='\n',y),ids)
 word_tweet_list = ids
@@ -62,7 +62,7 @@ avail_query = np.mean(np.array([wv["give"], wv["distributed"], wv["avail"] ]),ax
 avail_query = avail_query / np.sqrt(np.sum(avail_query**2))
 need_query = np.mean(np.array([wv["require"], wv["need"]]),axis=0)
 need_query = need_query / np.sqrt(np.sum(need_query**2))
-with open("../data/italy/revdict.npy") as f:
+with open("../data/nepal/revdict.npy") as f:
 	t = f.readlines()
 	t = map(lambda x: filter(lambda y: y!='\n', x), t)
 reverse_dictionary = {}
@@ -97,13 +97,13 @@ need_sorted = [i for i in sorted(need_dict.items(), key=lambda x : -x[1])]
 avail_sorted = [i for i in sorted(avail_dict.items(), key=lambda x: -x[1])]
 file_list = []
 for i in range(len(need_sorted)):
-	file_list.append("Italy-Need 0 %s %d %f running"%(need_sorted[i][0],i+1, need_sorted[i][1]))
+	file_list.append("Nepal-Need 0 %s %d %f running"%(need_sorted[i][0],i+1, need_sorted[i][1]))
 file_data = '\n'.join(file_list)
 with open("eval_need.txt", mode="w") as f:
 	f.write(file_data)
 file_list = []
 for i in range(len(avail_sorted)):
-	file_list.append("Italy-Avail 0 %s %d %f running"%(need_sorted[i][0],i+1, avail_sorted[i][1]))
+	file_list.append("Nepal-Avail 0 %s %d %f running"%(need_sorted[i][0],i+1, avail_sorted[i][1]))
 file_data = '\n'.join(file_list)
 with open("eval_avail.txt", mode="w") as f:
 	f.write(file_data)
